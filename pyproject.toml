@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "payload-gnc"
+version = "0.1.0"
+description = "Parafoil simulation and payload guidance and control"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "pfh.glidersim==2022.3.0a0",
+    "numpy<2",
+    "scipy<1.14",
+    "matplotlib<3.9",
+    "numba<0.61",
+    "jupyterlab",
+    "ipykernel",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["payload_gnc", "payload_gnc.*"]
+namespaces = false

@@ -1,0 +1,18 @@
+# Virtual environments
+.RTvenv/
+
+# Python generated files
+__pycache__/
+*.egg-info/
+
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Generated simulation results
+results/
+
+# macOS
+.DS_Store
+
+.vscode/
