@@ -128,7 +128,7 @@ class Simulator:
         self.controller.reset()
 
         while self.time < self.end_time:
-
+            if self.time % 10 == 0: print(self.time, "/", self.end_time)
             brake, error = self.controller.update(self.state, self.time)
             state = self.step(brake=brake)
 
