@@ -7,5 +7,5 @@ def right_brake_sequence():
         [0, 3, 5, 15, 17, 25],
         [0, 0, 0.25, 0.25, 0, 0],
         bounds_error=False,
-        fill_value=0.0,
+        fill_value=0.3,
     )

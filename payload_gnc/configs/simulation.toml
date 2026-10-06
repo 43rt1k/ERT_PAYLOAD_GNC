@@ -1,0 +1,157 @@
+
+
+[controller]
+
+    goal_position = [-1500.0, -1000.0, 0.0]  # m; 
+    max_brake = 0.5
+
+    [controller.pid]
+        kp = 0.5
+        ki = 0.0
+        kd = 0.0
+
+
+
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+[simulation]
+
+    t_sim = 100.0                  # s
+    dt = 5           # s; recorded output spacing
+
+    init_pos = [0.0, 0.0, -500.0]      # m; NED coordinates
+    init_euler = [0.0, 0.0, 0.0]          # deg; NED Euler angles
+
+    rho_air = 1.225                  # kg/m³
+
+
+
+
+
+
+
+
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+[aircraft]
+
+    # dynamics_model = "6a"
+    # use_apparent_mass = true
+
+
+
+
+    [aircraft.payload]
+
+        mass = 15.0  # kg; suspended mass, excluding wing
+        z_riser = 0.5  # m; riser midpoint to payload center
+        S = 0.55  # m²; equivalent sphere's projected area
+        CD = 0.8
+        kappa_w = 0.0  # m; disabled for your system
+
+        # model = "spherical"
+
+    [aircraft.wing]
+
+        default_size = 27
+        # rho_upper = "TODO"    # kg/m²; upper fabric surface density
+        # rho_lower = "TODO"    # kg/m²; lower fabric surface density
+        # rho_ribs = "TODO"     # kg/m²; rib fabric surface density
+        # N_cells = "TODO"      # integer; used to estimate rib mass
+
+
+
+
+
+
+
+
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+# # ── Canopy geometry ──────────────────────────────────────────────
+
+# [aircraft.wing.canopy]
+# b_flat = "TODO"       # m; flattened span, not projected span
+
+# [aircraft.wing.canopy.layout]
+# r_x = 0.70           # provisional chord reference fraction
+# x = 0.0              # constant normalized x-position of reference
+# r_yz = 0.25          # provisional arch reference: quarter chord
+# center = true
+
+# [aircraft.wing.canopy.chord]
+# model = "elliptical"
+# root = "TODO"         # m; root chord
+# tip = "TODO"          # m; tip chord
+
+# [aircraft.wing.canopy.arc]
+# model = "elliptical"
+# mean_anhedral_deg = "TODO"
+# tip_anhedral_deg = "TODO"
+
+# [aircraft.wing.canopy.twist]
+# model = "polynomial"
+# start = 0.0           # normalized half-span position, 0–1
+# exponent = 1.0        # provisional linear distribution
+# peak_deg = 0.0        # provisional: no twist
+
+
+# # ── Section geometry and aerodynamic data ────────────────────────
+
+# [aircraft.wing.canopy.sections]
+# # Example bundled dataset; NOT validated for your canopy.
+# profile_dataset = "braking_NACA24018_Xtr0.25"
+# polar_dataset = "braking_NACA24018_Xtr0.25"
+
+# Cd_intakes = "TODO"   # additional intake drag coefficient
+# Cd_surface = "TODO"   # additional surface drag coefficient
+
+# [aircraft.wing.canopy.sections.intakes]
+# s_end = "TODO"        # intakes extend between span indices ±s_end
+# r_upper = "TODO"      # signed airfoil-profile coordinate
+# r_lower = "TODO"      # signed airfoil-profile coordinate
+# # Require: -1 <= r_lower <= r_upper <= 1
+
+
+# # ── Aerodynamic solver settings ──────────────────────────────────
+
+# [aircraft.wing.canopy.aerodynamics]
+# method = "Phillips"
+# num_control_points = 31
+# v_ref_mag = 10.0      # m/s; solver reference, not imposed flight speed
+# alpha_ref_deg = 5.0   # solver reference angle of attack
+# clamp_to_last_interior_node = true
+
+
+# # ── Suspension positioning and accelerator geometry ──────────────
+
+# [aircraft.wing.lines]
+# model = "simple"
+
+# kappa_x = "TODO"      # m; riser/canopy fore–aft geometry
+# kappa_z = "TODO"      # m; riser/canopy vertical geometry
+# kappa_A = "TODO"      # m; A attachment position along central chord
+# kappa_C = "TODO"      # m; C attachment position along central chord
+# kappa_a = 0.0         # m; accelerator travel, disabled here
+
+# # Maximum modeled trailing-edge displacement—not servo travel.
+# kappa_b = "TODO"      # m
+
+# # Spanwise brake distribution at zero/full brake.
+# s_delta_start0 = "TODO"
+# s_delta_start1 = "TODO"
+# s_delta_stop0 = "TODO"
+# s_delta_stop1 = "TODO"
+
+# # Equivalent suspension-line drag model.
+# total_line_length = "TODO"       # m; sum over modeled lines
+# average_line_diameter = "TODO"   # m
+# Cd_lines = "TODO"
+
+# # Replace with an array of [x, y, z] positions in meters,
+# # measured from the central leading edge in Forward–Right–Down.
+# # Example format: [[x1, y1, z1], [x2, y2, z2]]
+# r_L2LE = "TODO"
