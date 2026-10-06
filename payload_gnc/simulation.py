@@ -1,14 +1,23 @@
 import io
 from contextlib import redirect_stdout
+from dataclasses import dataclass
 
 import numpy as np
 import pfh.glidersim as gsim
+
+from payload_gnc.gsim_helper import *
 
 L = 0
 R = 1
 
 
 class Simulator:
+
+    @dataclass
+    class Stats:
+        time = []
+        state = []
+        brake = []
 
     def __init__(
             self,
@@ -29,8 +38,7 @@ class Simulator:
         self.time = 0
         self.state = None
 
-        self.time_total = [self.time]
-        self.state_total = None
+        self.stats = self.Stats()
 
         self.duration = configs["t_sim"]
         self.dt = configs["dt"]
@@ -46,16 +54,19 @@ class Simulator:
     def __get_br(self, t):
         return self.brake[R]
 
-    def get_time_n_states(self):
-        return (
-            np.asarray(self.time_total),
-            np.asarray(self.state_total, dtype=self.model.state_dtype),
-        )
+    def get_totals(self):
+        return (np.asarray(self.stats.time),
+                np.asarray(self.stats.state, dtype=self.model.state_dtype),
+                np.asarray(self.stats.brake), np.asarray(self.stats.error))
 
-    def update_time_n_states(self, time, state):
-        self.time_total.append(time)
+    def update_totals(self, time, state, brake, error):
+        self.stats.time.append(time)
 
-        self.state_total.append(state.copy())
+        self.stats.state.append(state.copy())
+
+        self.stats.brake.append(brake.copy())
+
+        self.stats.error.append(error.copy())
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -80,13 +91,15 @@ class Simulator:
         self.brake = np.zeros(2)
 
         state = self.model.starting_equilibrium()
-        state["r_RM2O"] = self.init_pos
+        state[POS] = self.init_pos
 
         self.state = state
         self.time = 0
 
-        self.time_total = [self.time]
-        self.state_total = [self.state.copy()]
+        self.stats.time = [self.time]
+        self.stats.state = [self.state.copy()]
+        self.stats.brake = []
+        self.stats.error = []
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -116,9 +129,11 @@ class Simulator:
 
         while self.time < self.end_time:
 
-            brake = self.controller.update(self.state, self.time)
+            brake, error = self.controller.update(self.state, self.time)
             state = self.step(brake=brake)
 
-            self.update_time_n_states(self.time, state)
+            if state[POS][Z] >= 0: break
 
-        return self.get_time_n_states()
+            self.update_totals(self.time, state, brake, error)
+
+        return self.get_totals()

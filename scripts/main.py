@@ -7,9 +7,11 @@ import pfh.glidersim as gsim
 
 from payload_gnc.aircraft import build_basic_aircraft
 from payload_gnc.controllers.scripted import right_brake_sequence
-from payload_gnc.plotting import plot_trajectory
+from payload_gnc.plotting import Plotter
 from payload_gnc.simulation import Simulator
 from payload_gnc.controllers.pid import PID_Controller
+
+FILE_NAME = Path(__file__).name
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -33,25 +35,6 @@ def init_config():
     return project_root_path, output_path, config
 
 
-def plot_results(output_path, model, times, states):
-
-    np.savez(
-        output_path / "main.npz",
-        times=times,
-        states=states,
-    )
-
-    figure = plot_trajectory(
-        model,
-        times,
-        states,
-        goal_position=config["controller"]["goal_position"])
-    figure.savefig(output_path / "main.png", dpi=180)
-
-    print(f"Results saved to {output_path}")
-    plt.show()
-
-
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -72,9 +55,20 @@ def main():
         controller=controller,
     )
 
-    times, states = sim.run()
+    times, states, brakes, errors = sim.run()
 
-    plot_results(output_path, sim.model, times, states)
+    plotter = Plotter(
+        model=sim.model,
+        times=times,
+        states=states,
+        brakes=brakes,
+        errors=errors,
+        output_path=output_path,
+        file_name=FILE_NAME,
+        goal_position=config["controller"]["goal_position"],
+    )
+    plotter.save_npz()
+    plotter.plot()
 
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––

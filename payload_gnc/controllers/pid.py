@@ -63,16 +63,15 @@ class PID_Controller(Controller):
         desired_yaw = np.arctan2(offset[1], offset[0])
 
         # Shortest signed heading error, in [-pi, pi).
-        error_euler = (desired_yaw - self.euler[2] + np.pi) % (2 *
-                                                               np.pi) - np.pi
+        error_yaw = (desired_yaw - self.euler[2] + np.pi) % (2 * np.pi) - np.pi
 
-        return [error_position, error_euler]
+        return [error_position, error_yaw]
 
     def update(self, state, time):
 
         self.__update_state(state, time)
         error = self.__update_error()
-        print(f"Error Position: {error[POS]}, Error Euler: {error[YAW]}")
+        # print(f"Error Position: {error[POS]}, Error Euler: {error[YAW]}")
 
         self.integral += error[YAW] * self.dt
 
@@ -87,4 +86,4 @@ class PID_Controller(Controller):
         right_brake = max(command, 0.0)
 
         # self.pritn_state(time_step=2)
-        return [left_brake, right_brake]
+        return [left_brake, right_brake], error
