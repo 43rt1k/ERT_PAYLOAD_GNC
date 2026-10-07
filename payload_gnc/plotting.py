@@ -55,9 +55,9 @@ class Plotter:
     def __set_titles(self, figure, ax):
         figure.canvas.manager.set_window_title(self.window_title)
 
-        ax.set_xlabel("North [m]")
-        ax.set_ylabel("East [m]")
-        ax.set_zlabel("Altitude above origin [m]")
+        ax.set_xlabel("X [m]")
+        ax.set_ylabel("Y [m]")
+        ax.set_zlabel("Z [m]")
         ax.set_title("Flight trajectory")
 
     def __plot_cross(self, ax, position, label, color="black"):
@@ -115,6 +115,7 @@ class Plotter:
             position = self.positions[index]
             x, y, z = position
 
+            self.time_line.set_xdata([time, time])
             point.set_data_3d([x], [y], [z])
 
             text.set_position((x, y))
@@ -153,12 +154,19 @@ class Plotter:
 
         self.save_png(figure)
 
-    def plot_flight_data(self, ax, ax_z):
+    def plot_flight_data(self, ax):
 
         euler = gsim.orientation.quaternion_to_euler(self.states["q_b2e"])
         yaw = np.rad2deg(euler[:, YAW])
 
         yaw_error = np.rad2deg(self.errors[:, YAW_ERROR])
+
+        self.time_line = ax.axvline(
+            x=self.times[0],
+            color="black",
+            linestyle="--",
+            linewidth=1,
+        )
 
         # First graph: brakes on the left axis.
         ax.stairs(
@@ -166,13 +174,15 @@ class Plotter:
             self.times,
             baseline=None,
             color="blue",
+            linestyle="--",
             label="Left brake",
         )
         ax.stairs(
             self.brakes[:, 1],
             self.times,
             baseline=None,
-            color="red",
+            color="green",
+            linestyle="--",
             label="Right brake",
         )
         ax.set_ylabel("Brake [0–1]")
@@ -181,16 +191,15 @@ class Plotter:
         # Angles on the right axis, sharing the same graph.
         ax_angles = ax.twinx()
         ax_angles.plot(
-            self.times,
-            yaw,
+            self.times[:-1],
+            self.errors[:, POS_ERROR],
             color="purple",
-            label="Yaw",
+            label="XY error",
         )
         ax_angles.plot(
             self.times[:-1],
             yaw_error,
-            color="darkorange",
-            linestyle="--",
+            color="red",
             label="Yaw error",
         )
         ax_angles.set_ylabel("Angle [°]")
@@ -199,12 +208,6 @@ class Plotter:
         angle_handles, angle_labels = ax_angles.get_legend_handles_labels()
         ax.legend(handles + angle_handles, labels + angle_labels)
         ax.grid(True, alpha=0.3)
-
-        # Second graph: altitude (already converted from NED).
-        ax_z.plot(self.times, self.positions[:, 2], color="steelblue")
-        ax_z.set_ylabel("Z [m]")
-        ax_z.set_xlabel("Time [s]")
-        ax_z.grid(True, alpha=0.3)
 
     def plot(self):
         figure = plt.figure(figsize=(16, 8))
@@ -216,16 +219,15 @@ class Plotter:
             wspace=0.4,
             hspace=0.15,
         )
-        grid = figure.add_gridspec(2, 2, width_ratios=[1, 1.4])
+        grid = figure.add_gridspec(1, 2, width_ratios=[1, 1.4])
 
         # Left: flight data.
         ax_controls = figure.add_subplot(grid[0, 0])
-        ax_height = figure.add_subplot(grid[1, 0], sharex=ax_controls)
 
         # Right: trajectory.
         ax_trajectory = figure.add_subplot(grid[:, 1], projection="3d")
 
-        self.plot_flight_data(ax_controls, ax_height)
+        self.plot_flight_data(ax_controls)
         self.plot_trajectory(ax_trajectory)
 
         figure.savefig(

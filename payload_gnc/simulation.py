@@ -18,6 +18,7 @@ class Simulator:
         time = []
         state = []
         brake = []
+        error = []
 
     def __init__(
             self,
@@ -128,11 +129,14 @@ class Simulator:
         self.controller.reset()
 
         while self.time < self.end_time:
-            if self.time % 10 == 0: print(self.time, "/", self.end_time)
+            if self.time % 10 == 0:
+                print(int(self.time), "/", int(self.end_time))
             brake, error = self.controller.update(self.state, self.time)
             state = self.step(brake=brake)
 
-            if state[POS][Z] >= 0: break
+            if state[POS][Z] >= 0:
+                print("Reached ground at: ", int(self.time), " s")
+                break
 
             self.update_totals(self.time, state, brake, error)
 
