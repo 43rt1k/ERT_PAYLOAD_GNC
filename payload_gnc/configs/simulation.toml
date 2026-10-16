@@ -1,63 +1,42 @@
-
-
 [controller]
 
-    goal_position = [500.0, 500.0, 0.0]  # m; 
+    goal_position = [-1500.0, 0, 0.0]  # m; 
     # goal_position = [1000.0, 1000.0, 0.0]  # Good mathch 1
     max_brake = 0.5
 
     [controller.pid]
-        kp = 0.2
-        ki = 0.001
-        kd = 0.5
-
-
+        kp = 0.3
+        ki = 0.01
+        kd = 0.001
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 [simulation]
-
-    t_sim = 1000.0                  # s
+    t_sim = 2000.0                  # s
     dt = 2           # s; recorded output spacing
 
-    init_pos = [0.0, 0.0, -300.0]      # m; NED coordinates
+    init_pos = [0.0, 0.0, -500.0]      # m; NED coordinates
     # init_pos = [0.0, 0.0, -200.0]      # Good mathch 1
     init_euler = [0.0, 0.0, 0.0]          # deg; NED Euler angles
 
     rho_air = 1.225                  # kg/m³
 
-
-
-
-
-
-
-
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 [aircraft]
-
-    # dynamics_model = "6a"
-    # use_apparent_mass = true
-
-
-
-
     [aircraft.payload]
-
         mass = 15.0  # kg; suspended mass, excluding wing
         z_riser = 0.5  # m; riser midpoint to payload center
         S = 0.55  # m²; equivalent sphere's projected area
         CD = 0.8
         kappa_w = 0.0  # m; disabled for your system
 
-        # model = "spherical"
-
     [aircraft.wing]
-
         default_size = 27
+
+        
         # rho_upper = "TODO"    # kg/m²; upper fabric surface density
         # rho_lower = "TODO"    # kg/m²; lower fabric surface density
         # rho_ribs = "TODO"     # kg/m²; rib fabric surface density

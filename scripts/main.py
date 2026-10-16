@@ -44,6 +44,7 @@ project_root_path, output_path, config = init_config()
 def main():
 
     aircraft = build_basic_aircraft(config["aircraft"])
+
     controller = PID_Controller(
         config["controller"],
         dt=config["simulation"]["dt"],
@@ -54,7 +55,6 @@ def main():
         configs=config["simulation"],
         controller=controller,
     )
-
     times, states, brakes, errors = sim.run()
 
     plotter = Plotter(
