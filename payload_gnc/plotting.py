@@ -14,17 +14,19 @@ YAW_ERROR = 1
 
 class Plotter:
 
-    def __init__(self, model, times, states, brakes, errors, output_path,
-                 file_name, goal_position):
-        self.model = model
+    def __init__(self, times, states, brakes, errors, output_path, file_name,
+                 goal_position):
         self.times = times
         self.states = states
 
-        self.brakes = brakes
-        self.errors = errors
+        self.brakes = self.__make_same_size(brakes)
+
+        self.errors = self.__make_same_size(errors)
 
         self.positions = np.array(states[POS], dtype=float, copy=True)
         self.positions[:, Z] *= -1
+
+        self.orientation = gsim.orientation.quaternion_to_euler(states[ORI])
 
         self.velocities = np.array(states[VEL], dtype=float, copy=True)
 
@@ -38,6 +40,9 @@ class Plotter:
 
         self.window_title = "Payload GNC — Simulation"
 
+        self.vrb_save_fig = False
+        self.time_line = None
+
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def save_npz(self):
@@ -50,21 +55,38 @@ class Plotter:
     def save_png(self, figure):
         figure.savefig(self.output_path / f"{self.file_name}.png", dpi=180)
 
+    def __save_fig(self, figure):
+        if self.vrb_save_fig is False: return
+
+        figure.savefig(
+            self.output_path / f"{self.file_name}_overview.png",
+            dpi=180,
+        )
+
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def __set_titles(self, figure, ax):
-        figure.canvas.manager.set_window_title(self.window_title)
+    def __make_same_size(self, control_data):
 
-        ax.set_xlabel("X [m]")
-        ax.set_ylabel("Y [m]")
-        ax.set_zlabel("Z [m]")
-        ax.set_title("Flight trajectory")
+        missing_len = len(self.states) - len(control_data)
+
+        missing_values = np.full(
+            (missing_len, ) + control_data.shape[1:],
+            np.nan,
+            dtype=float,
+        )
+
+        return np.concatenate((missing_values, control_data), axis=0)
+
+    def __set_orientation(self):
+        pass
 
     def __plot_cross(self, ax, position, label, color="black"):
         label_n_pos = (
             f"{label} "
             f"[{position[0]:.0f}, {position[1]:.0f}, {position[2]:.0f}]")
+
         x, y, z = position
+
         point, = ax.plot(
             [x],
             [y],
@@ -126,10 +148,96 @@ class Plotter:
 
         self.slider.on_changed(update)
 
-    def plot_trajectory(self, ax):
-        figure = ax.figure
 
-        self.__set_titles(figure, ax)
+# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+    def plot_series(
+        self,
+        ax,
+        times,
+        data,
+        *,
+        color,
+        label="",
+        ylabel="",
+        stepped=False,
+    ):
+        if stepped:
+            # Requires one more timestamp than data values.
+            ax.step(times, data, where="post", color=color, label=label)
+        else:
+            ax.plot(times, data, color=color, label=label)
+
+        cursor = ax.axvline(
+            self.times[0],
+            color="black",
+            linestyle="--",
+            linewidth=1,
+        )
+        self.time_lines.append(cursor)
+
+        ax.set_ylabel(ylabel)
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
+
+    def plot_left_side(self, figure, slot):
+
+        plots = [
+            dict(
+                times=self.times,
+                data=self.brakes[:, 0],
+                color="blue",
+                label="Left brake",
+                stepped=True,
+            ),
+            dict(
+                times=self.times,
+                data=self.brakes[:, 1],
+                color="green",
+                label="Right brake",
+                stepped=True,
+            ),
+            dict(
+                times=self.times,
+                data=np.rad2deg(self.errors[:, YAW_ERROR]),
+                color="red",
+                label="Yaw error",
+                ylabel="[°]",
+            ),
+            dict(
+                times=self.times,
+                data=self.errors[:, POS_ERROR],
+                color="purple",
+                label="Position error",
+                ylabel="[m]",
+            ),
+        ]
+
+        grid = slot.subgridspec(len(plots), 1, hspace=0.1)
+        self.time_lines = []
+        axes = []
+
+        for row, settings in enumerate(plots):
+            ax = figure.add_subplot(
+                grid[row, 0],
+                sharex=axes[0] if axes else None,
+            )
+            self.plot_series(ax, **settings)
+            axes.append(ax)
+
+        for ax in axes[:-1]:
+            ax.tick_params(labelbottom=False)
+
+        axes[-1].set_xlabel("Time [s]")
+
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+    def __plot_trajectory(self, ax):
+
+        ax.set_xlabel("X [m]")
+        ax.set_ylabel("Y [m]")
+        ax.set_zlabel("Z [m]")
+        ax.set_title("Flight trajectory")
 
         ax.plot(
             self.positions[:, X],
@@ -145,109 +253,45 @@ class Plotter:
         ax.view_init(elev=40, azim=-60)
         ax.tick_params(labelsize=8)
 
-        figure.tight_layout()
-        ax.legend()
-        ax.legend(loc="upper left")
-        # Leave room below the plot for the slider.
-        figure.tight_layout(rect=[0, 0.12, 1, 1])
-        self.__add_slider(figure, ax)
+    def __plot_info(self, ax):
+        ax.set_title("State data")
 
-        self.save_png(figure)
+    def plot_right_side(self, figure, slot):
+        grid = slot.subgridspec(2, 1, height_ratios=[8, 1])
 
-    def plot_flight_data(self, ax):
+        # Top right: 3D trajectory.
+        ax_trajectory = figure.add_subplot(grid[0, 0], projection="3d")
+        self.__plot_trajectory(ax_trajectory)
 
-        euler = gsim.orientation.quaternion_to_euler(self.states["q_b2e"])
-        yaw = np.rad2deg(euler[:, YAW])
+        ax_info = figure.add_subplot(grid[1, 0])
+        self.__plot_info(ax_info)
 
-        yaw_error = np.rad2deg(self.errors[:, YAW_ERROR])
-
-        self.time_line = ax.axvline(
-            x=self.times[0],
-            color="black",
-            linestyle="--",
-            linewidth=1,
-        )
-
-        # First graph: brakes on the left axis.
-        ax.stairs(
-            self.brakes[:, 0],
-            self.times,
-            baseline=None,
-            color="blue",
-            linestyle="--",
-            label="Left brake",
-        )
-        ax.stairs(
-            self.brakes[:, 1],
-            self.times,
-            baseline=None,
-            color="green",
-            linestyle="--",
-            label="Right brake",
-        )
-        ax.set_ylabel("Brake [0–1]")
-        ax.set_ylim(-0.05, 1.05)
-
-        # Angles on the right axis, sharing the same graph.
-        ax_angles = ax.twinx()
-        ax_angles.plot(
-            self.times[:-1],
-            self.errors[:, POS_ERROR],
-            color="purple",
-            label="XY error",
-        )
-        ax_angles.plot(
-            self.times[:-1],
-            yaw_error,
-            color="red",
-            label="Yaw error",
-        )
-        ax_angles.set_ylabel("Angle [°]")
-
-        handles, labels = ax.get_legend_handles_labels()
-        angle_handles, angle_labels = ax_angles.get_legend_handles_labels()
-        ax.legend(handles + angle_handles, labels + angle_labels)
-        ax.grid(True, alpha=0.3)
-
-    def plot(self):
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    def __plot_init(self):
         figure = plt.figure(figsize=(16, 8))
+        figure.canvas.manager.set_window_title(self.window_title)
         figure.subplots_adjust(
-            left=0.07,
-            right=0.95,
-            bottom=0.17,
-            top=0.92,
-            wspace=0.4,
+            left=0.05,
+            right=0.98,
+            bottom=0.05,
+            top=0.95,
+            wspace=0.05,
             hspace=0.15,
         )
-        grid = figure.add_gridspec(1, 2, width_ratios=[1, 1.4])
 
-        # Left: flight data.
-        ax_controls = figure.add_subplot(grid[0, 0])
-
-        # Right: trajectory.
-        ax_trajectory = figure.add_subplot(grid[:, 1], projection="3d")
-
-        self.plot_flight_data(ax_controls)
-        self.plot_trajectory(ax_trajectory)
-
-        figure.savefig(
-            self.output_path / f"{self.file_name}_overview.png",
-            dpi=180,
-        )
-
-        plt.show()
         return figure
 
+    def plot(self):
+        figure = self.__plot_init()
 
-# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+        # Main grid: one row, two columns.
+        grid = figure.add_gridspec(1, 2, width_ratios=[1, 1])
 
+        self.plot_right_side(figure, grid[0, 1])
+        self.plot_left_side(figure, grid[0, 0])
 
-def basic_plot(model, times, states):
-    points = gsim.extras.simulation.sample_paraglider_positions(
-        model, states, times)
+        self.__save_fig(figure)
+        plt.show()
 
-    gsim.extras.plots.plot_3d_simulation_path(**points)
-
-    return plt.gcf()
+        return figure

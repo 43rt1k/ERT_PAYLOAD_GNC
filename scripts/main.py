@@ -58,7 +58,6 @@ def main():
     times, states, brakes, errors = sim.run()
 
     plotter = Plotter(
-        model=sim.model,
         times=times,
         states=states,
         brakes=brakes,

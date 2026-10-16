@@ -1,5 +1,5 @@
 POS = "r_RM2O"
-EUL = "q_b2e"
+ORI = "q_b2e"
 VEL = "r_RM2O"
 
 X = 0
