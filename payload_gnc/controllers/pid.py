@@ -1,30 +1,28 @@
 import numpy as np
 
-from payload_gnc.controllers.controller import Controller, q2euler
+from payload_gnc.gsim_helper import *
 
-POS = 0
-YAW = 1
+ERR_POS = 0
+ERR_YAW = 1
 
 
-class PID_Controller(Controller):
+class PID_Controller():
 
-    def __init__(self, config, dt, verbose=True):
-        self.kp = config["pid"]["kp"]
-        self.ki = config["pid"]["ki"]
-        self.kd = config["pid"]["kd"]
-        self.max_brake = config["max_brake"]
+    def __init__(self, config, dt, max_brake, verbose=True):
+        self.kp = config["kp"]
+        self.ki = config["ki"]
+        self.kd = config["kd"]
+        self.max_brake = max_brake
 
         self.dt = dt
-        self.time = 0.0
         self.integral = 0.0
 
-        self.goal_position = config["goal_position"]
+        self.goal_position = None
 
         self.prev_error = [0, 0]
 
         self.position = np.zeros(3)
-        self.velocity = np.zeros(3)
-        self.euler = np.zeros(3)
+        self.orientation = np.zeros(3)
 
         if verbose:
             print(
@@ -34,27 +32,17 @@ class PID_Controller(Controller):
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def reset(self):
+    def reset(self, goal_position):
         self.integral = 0.0
-
-    def pritn_state(self, time_step=100):
-        if int(self.time / time_step) == self.time / time_step:
-            print(
-                f"Position: {self.position}, Velocity: {self.velocity}, Euler: {self.euler}"
-            )
+        self.goal_position = goal_position
+        self.prev_error = [0, 0]
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-    def __update_state(self, state, time):
-        self.position = state["r_RM2O"]
-        self.velocity = state["v_RM2e"]
 
-        self.euler = q2euler(state["q_b2e"])
-        self.time = time
+    def __update_error(self, position, orientation):
 
-    def __update_error(self):
-
-        offset = np.asarray(self.goal_position) - np.asarray(self.position)
+        offset = np.asarray(self.goal_position) - np.asarray(position)
 
         # Straight-line distance to the goal [m].
         error_position = float(np.linalg.norm(offset))
@@ -63,22 +51,22 @@ class PID_Controller(Controller):
         desired_yaw = np.arctan2(offset[1], offset[0])
 
         # Shortest signed heading error, in [-pi, pi).
-        error_yaw = (desired_yaw - self.euler[2] + np.pi) % (2 * np.pi) - np.pi
+        error_yaw = (desired_yaw - orientation[2] + np.pi) % (2 *
+                                                              np.pi) - np.pi
 
         return [error_position, error_yaw]
 
-    def update(self, state, time):
+    def update(self, position, orientation):
 
-        self.__update_state(state, time)
-        error = self.__update_error()
+        error = self.__update_error(position, orientation)
         # print(f"Error Position: {error[POS]}, Error Euler: {error[YAW]}")
 
-        self.integral += error[YAW] * self.dt
+        self.integral += error[ERR_YAW] * self.dt
 
-        derivative = (error[YAW] - self.prev_error[YAW]) / self.dt
-        self.prev_error[YAW] = error[YAW]
+        derivative = (error[ERR_YAW] - self.prev_error[ERR_YAW]) / self.dt
+        self.prev_error[ERR_YAW] = error[ERR_YAW]
 
-        command = (self.kp * error[YAW] + self.ki * self.integral +
+        command = (self.kp * error[ERR_YAW] + self.ki * self.integral +
                    self.kd * derivative)
         command = float(np.clip(command, -self.max_brake, self.max_brake))
 

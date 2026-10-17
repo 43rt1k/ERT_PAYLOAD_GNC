@@ -23,7 +23,7 @@ class Plotter:
         self.brakes = brakes
         self.errors = errors
 
-        self.positions = np.array(states[POS], dtype=float, copy=True)
+        self.positions = np.array(states[ERR_POS], dtype=float, copy=True)
         self.positions[:, Z] *= -1
 
         self.velocities = np.array(states[VEL], dtype=float, copy=True)

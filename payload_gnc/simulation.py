@@ -6,31 +6,23 @@ import numpy as np
 import pfh.glidersim as gsim
 
 from payload_gnc.gsim_helper import *
-
-L = 0
-R = 1
+from payload_gnc.controllers.controller import GN_Controller, FP
 
 
 class Simulator:
-
-    @dataclass
-    class Stats:
-        time = []
-        state = []
-        brake = []
-        error = []
 
     def __init__(
             self,
             aircraft,
             *,
             configs,
-            controller,
+            dt,
+            GNC,
             wind=(0, 0, 0),
     ):
         # Commands currently applied to the aircraft.
         self.model = self.__init_model(aircraft, configs, wind)
-        self.controller = controller
+        self.GNC = GNC
 
         self.brake = np.zeros(2)
         self.init_pos = configs["init_pos"]
@@ -39,10 +31,8 @@ class Simulator:
         self.time = 0
         self.state = None
 
-        self.stats = self.Stats()
-
         self.duration = configs["t_sim"]
-        self.dt = configs["dt"]
+        self.dt = dt
 
         self.end_time = self.time + self.duration
 
@@ -54,20 +44,6 @@ class Simulator:
 
     def __get_br(self, t):
         return self.brake[R]
-
-    def get_totals(self):
-        return (np.asarray(self.stats.time),
-                np.asarray(self.stats.state, dtype=self.model.state_dtype),
-                np.asarray(self.stats.brake), np.asarray(self.stats.error))
-
-    def update_totals(self, time, state, brake, error):
-        self.stats.time.append(time)
-
-        self.stats.state.append(state.copy())
-
-        self.stats.brake.append(brake.copy())
-
-        self.stats.error.append(error.copy())
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -92,21 +68,16 @@ class Simulator:
         self.brake = np.zeros(2)
 
         state = self.model.starting_equilibrium()
-        state[POS] = self.init_pos
+        state[ERR_POS] = self.init_pos
 
         self.state = state
         self.time = 0
 
-        self.stats.time = [self.time]
-        self.stats.state = [self.state.copy()]
-        self.stats.brake = []
-        self.stats.error = []
-
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def step(self, brake):
+    def step(self, brakes):
 
-        self.brake = brake
+        self.brake = brakes
 
         with redirect_stdout(io.StringIO()):
             times, states = gsim.simulator.simulate(
@@ -126,18 +97,19 @@ class Simulator:
 
     def run(self):
         self.reset()
-        self.controller.reset()
+        self.GNC.reset()
 
         while self.time < self.end_time:
-            if self.time % 10 == 0:
-                print(int(self.time), "/", int(self.end_time))
-            brake, error = self.controller.update(self.state, self.time)
-            state = self.step(brake=brake)
 
-            if state[POS][Z] >= 0:
+            state = self.step(self.GNC.brakes)
+
+            self.GNC.update(self.state, self.time)
+
+            if self.GNC.phase == FP.LANDED:
                 print("Reached ground at: ", int(self.time), " s")
                 break
 
-            self.update_totals(self.time, state, brake, error)
+            if self.time % 10 == 0:
+                print(int(self.time), "/", int(self.end_time))
 
-        return self.get_totals()
+        return self.GNC.statistics.get()

@@ -32,7 +32,7 @@ class Plotter:
 
         self.errors = self.__make_same_size(errors)
 
-        self.positions = np.array(states[POS], dtype=float, copy=True)
+        self.positions = np.array(states[ERR_POS], dtype=float, copy=True)
         self.positions[:, Z] *= -1
 
         self.orientation = gsim.orientation.quaternion_to_euler(states[ORI])
