@@ -1,6 +1,6 @@
 POS = "r_RM2O"
 ORI = "q_b2e"
-VEL = "r_RM2O"
+VEL = "v_RM2e"
 
 X = 0
 Y = 1
