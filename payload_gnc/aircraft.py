@@ -5,6 +5,7 @@ import pfh.glidersim as gsim
 
 def build_basic_aircraft(config, verbose=True):
 
+    VRB_ID = "––AIR | "
     wing_config = config["wing"]
 
     with redirect_stdout(io.StringIO()):
@@ -23,6 +24,7 @@ def build_basic_aircraft(config, verbose=True):
 
     if verbose:
         print(
+            VRB_ID,
             f"Built paraglider with wing size {wing_config['default_size']} m² and payload mass {payload_config['mass']} kg."
         )
 

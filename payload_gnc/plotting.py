@@ -23,8 +23,8 @@ class Plotter:
 
         time_lines: list = field(default_factory=list)
 
-    def __init__(self, times, states, brakes, errors, output_path, file_name,
-                 goal_position):
+    def __init__(self, times, states, brakes, errors, goal_positions,
+                 output_path, file_name):
         self.times = times
         self.states = states
 
@@ -32,7 +32,7 @@ class Plotter:
 
         self.errors = self.__make_same_size(errors)
 
-        self.positions = np.array(states[ERR_POS], dtype=float, copy=True)
+        self.positions = np.array(states[POS], dtype=float, copy=True)
         self.positions[:, Z] *= -1
 
         self.orientation = gsim.orientation.quaternion_to_euler(states[ORI])
@@ -41,8 +41,8 @@ class Plotter:
 
         self.init_position = self.positions[0]
 
-        self.goal_position = goal_position
-        self.goal_position[Z] *= -1
+        self.goal_positions = goal_positions
+        self.goal_positions[:, Z] *= -1
 
         self.file_name = file_name
         self.output_path = output_path
@@ -285,7 +285,8 @@ class Plotter:
         )
 
         self.__plot_cross(ax, self.init_position, "Initial position", "blue")
-        self.__plot_cross(ax, self.goal_position, "Goal position", "green")
+        for index, position in enumerate(self.goal_positions):
+            self.__plot_cross(ax, position, f"Goal {index + 1}", "green")
 
         self.snap.position_point, self.snap.position_text = self.__plot_cross(
             ax, self.snap.position, "Payload", color="red")

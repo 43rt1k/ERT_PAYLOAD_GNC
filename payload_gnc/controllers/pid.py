@@ -9,6 +9,7 @@ ERR_YAW = 1
 class PID_Controller():
 
     def __init__(self, config, dt, max_brake, verbose=True):
+        self.VRB_ID = "––PID | "
         self.kp = config["kp"]
         self.ki = config["ki"]
         self.kd = config["kd"]
@@ -26,6 +27,7 @@ class PID_Controller():
 
         if verbose:
             print(
+                self.VRB_ID,
                 f"Initialized PID controller with kp={self.kp}, ki={self.ki}, kd={self.kd}, max_brake={self.max_brake}."
             )
 

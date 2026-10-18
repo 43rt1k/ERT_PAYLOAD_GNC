@@ -40,27 +40,29 @@ def init_config():
 
 project_root_path, output_path, config = init_config()
 
+VRB_ID = "––MAI | "
+
 
 def main():
 
     aircraft = build_basic_aircraft(config["aircraft"])
 
-    GNC = GN_Controller(config["controller"])
+    GNC = GN_Controller(config["controller"], config["simulation"]["init_pos"])
 
     sim = Simulator(aircraft,
                     configs=config["simulation"],
                     dt=config["controller"]["dt"],
                     GNC=GNC)
 
-    times, states, brakes, errors = sim.run()
+    times, states, brakes, errors, goal_positions = sim.run()
 
     plotter = Plotter(times=times,
                       states=states,
                       brakes=brakes,
                       errors=errors,
+                      goal_positions=goal_positions,
                       output_path=output_path,
-                      file_name=FILE_NAME,
-                      goal_position=config["controller"]["goal_position"])
+                      file_name=FILE_NAME)
 
     plotter.save_npz()
     plotter.plot()

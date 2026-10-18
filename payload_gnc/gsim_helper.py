@@ -1,4 +1,4 @@
-ERR_POS = "r_RM2O"
+POS = "r_RM2O"
 ORI = "q_b2e"
 VEL = "v_RM2e"
 
@@ -8,3 +8,4 @@ Z = 2
 
 L = 0
 R = 1
+

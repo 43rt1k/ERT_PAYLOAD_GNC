@@ -11,15 +11,8 @@ from payload_gnc.controllers.controller import GN_Controller, FP
 
 class Simulator:
 
-    def __init__(
-            self,
-            aircraft,
-            *,
-            configs,
-            dt,
-            GNC,
-            wind=(0, 0, 0),
-    ):
+    def __init__(self, aircraft, *, configs, dt, GNC, wind=(0, 0, 0)):
+        self.VRB_ID = "––SIM | "
         # Commands currently applied to the aircraft.
         self.model = self.__init_model(aircraft, configs, wind)
         self.GNC = GNC
@@ -68,7 +61,7 @@ class Simulator:
         self.brake = np.zeros(2)
 
         state = self.model.starting_equilibrium()
-        state[ERR_POS] = self.init_pos
+        state[POS] = self.init_pos
 
         self.state = state
         self.time = 0
@@ -106,10 +99,10 @@ class Simulator:
             self.GNC.update(self.state, self.time)
 
             if self.GNC.phase == FP.LANDED:
-                print("Reached ground at: ", int(self.time), " s")
+                print(self.VRB_ID, "Reached ground at: ", int(self.time), " s")
                 break
 
-            if self.time % 10 == 0:
-                print(int(self.time), "/", int(self.end_time))
+            if self.time % 100 == 0:
+                print(self.VRB_ID, int(self.time), "/", int(self.end_time))
 
         return self.GNC.statistics.get()
