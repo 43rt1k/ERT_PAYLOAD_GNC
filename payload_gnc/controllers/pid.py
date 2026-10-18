@@ -8,7 +8,12 @@ ERR_YAW = 1
 
 class PID_Controller():
 
-    def __init__(self, config, dt, max_brake, verbose=True):
+    def __init__(self,
+                 config,
+                 dt,
+                 max_brake,
+                 goal_position=None,
+                 verbose=True):
         self.VRB_ID = "––PID | "
         self.kp = config["kp"]
         self.ki = config["ki"]
@@ -18,7 +23,7 @@ class PID_Controller():
         self.dt = dt
         self.integral = 0.0
 
-        self.goal_position = None
+        self.goal_position = goal_position
 
         self.prev_error = [0, 0]
 
@@ -34,10 +39,10 @@ class PID_Controller():
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def reset(self, goal_position):
+    def set_goal_position(self, goal_position):
         self.integral = 0.0
-        self.goal_position = goal_position
         self.prev_error = [0, 0]
+        self.goal_position = goal_position
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––

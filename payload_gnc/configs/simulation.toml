@@ -5,6 +5,7 @@
     max_brake = 0.5
     arrival_margin=50.0
     hold_coeff = 0.5
+    goal_margin = 50
 
     stabilisation_time = 10
 
@@ -19,9 +20,9 @@
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 [simulation]
-    t_sim = 1000.0                  # s
+    t_sim = 1500.0                  # s
 
-    init_pos = [0.0, 0.0, -300.0]      # m; NED coordinates
+    init_pos = [0.0, 0.0, -600.0]      # m; NED coordinates
     # init_pos = [0.0, 0.0, -200.0]      # Good mathch 1
     init_euler = [0.0, 0.0, 0.0]          # deg; NED Euler angles
 

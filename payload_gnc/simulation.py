@@ -13,23 +13,31 @@ class Simulator:
 
     def __init__(self, aircraft, *, configs, dt, GNC, wind=(0, 0, 0)):
         self.VRB_ID = "––SIM | "
-        # Commands currently applied to the aircraft.
-        self.model = self.__init_model(aircraft, configs, wind)
-        self.GNC = GNC
+        self.vrb_progress = False
 
-        self.brake = np.zeros(2)
         self.init_pos = configs["init_pos"]
         self.init_euler = configs["init_euler"]
 
-        self.time = 0
-        self.state = None
-
         self.duration = configs["t_sim"]
         self.dt = dt
+        self.time = 0
+
+        self.GNC = GNC
 
         self.end_time = self.time + self.duration
+        self.brake = np.zeros(2)
+
+        self.model = self.__init_model(aircraft, configs, wind)
+        self.state = self.__init_state()
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+    def __print_progress(self, step=100):
+        if not self.vrb_progress: return
+
+        if self.time % step == 0:
+            print(self.VRB_ID, int(self.time), "/", int(self.end_time))
+
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def __get_bl(self, t):
@@ -52,19 +60,12 @@ class Simulator:
             v_W2e=wind,
         )
 
-    def reset(self, init_pos=None):
-        """Start a new flight in steady glide at the given NED position."""
-
-        if init_pos is not None: self.init_pos = init_pos
-
-        # Equilibrium initialization uses neutral controls.
-        self.brake = np.zeros(2)
+    def __init_state(self):
 
         state = self.model.starting_equilibrium()
-        state[POS] = self.init_pos
+        state[POS] = self.init_pos.copy()
 
-        self.state = state
-        self.time = 0
+        return state
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -89,8 +90,6 @@ class Simulator:
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def run(self):
-        self.reset()
-        self.GNC.reset()
 
         while self.time < self.end_time:
 
@@ -102,7 +101,6 @@ class Simulator:
                 print(self.VRB_ID, "Reached ground at: ", int(self.time), " s")
                 break
 
-            if self.time % 100 == 0:
-                print(self.VRB_ID, int(self.time), "/", int(self.end_time))
+            self.__print_progress()
 
         return self.GNC.statistics.get()
