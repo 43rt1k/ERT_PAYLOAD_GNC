@@ -31,7 +31,7 @@ class FP(Enum):
     STABILISATION = auto()
     DEFAULT = auto()
     HOLD = auto()
-    # APPROACH = auto()
+    APPROACH = auto()
     LANDED = auto()
 
 
@@ -169,19 +169,31 @@ class GN_Controller:
     def __is_at_hold_distance(self):
         return self.dist_to_goal <= self.dist_hold
 
+    def __is_hold_done(self):
+        return False
+
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def __update_phase(self):
 
-        if self.__is_landed(): self.__set_phase(FP.LANDED)
+        # LAST PHASE: LANDING
+        if self.__is_landed():
+            self.__set_phase(FP.LANDED)
 
+            # PHASE STABILISATION: Wait for the payload to stabilise
         elif self.phase is FP.STABILISATION and self.__is_stabilisation_done():
             self.__set_phase(FP.DEFAULT)
 
+        # PHASE HOLD: Turn around at a nearer point to lose height
         elif self.phase is FP.DEFAULT and self.ex_phase is FP.STABILISATION and self.__is_at_hold_distance(
         ):
             self.__set_phase(FP.HOLD)
             self.__set_goal_poosition(self.position, grounded=True)
+
+        # PHASE APPROACH: Approach the ultimate goal position in a arc-shaped trajectory
+        elif self.phase is FP.HOLD and self.ex_phase is FP.DEFAULT and self.__is_hold_done(
+        ):
+            self.__set_phase(FP.APPROACH)
 
     def __update_state(self, state, time):
         self.state = state.copy()
