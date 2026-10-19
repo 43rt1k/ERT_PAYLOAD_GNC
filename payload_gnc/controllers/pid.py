@@ -23,12 +23,9 @@ class PID_Controller():
         self.dt = dt
         self.integral = 0.0
 
-        self.goal_position = goal_position
+        # self.goal_position = goal_position
 
         self.prev_error = [0, 0]
-
-        self.position = np.zeros(3)
-        self.orientation = np.zeros(3)
 
         if verbose:
             print(
@@ -39,17 +36,17 @@ class PID_Controller():
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def set_goal_position(self, goal_position):
-        self.integral = 0.0
-        self.prev_error = [0, 0]
-        self.goal_position = goal_position
+    # def set_goal_position(self, goal_position):
+    #     self.integral = 0.0
+    #     self.prev_error = [0, 0]
+    #     self.goal_position = goal_position
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def __update_error(self, position, orientation):
+    def __update_error(self, goal_position, position, orientation):
 
-        offset = np.asarray(self.goal_position) - np.asarray(position)
+        offset = np.asarray(goal_position) - np.asarray(position)
 
         # Straight-line distance to the goal [m].
         error_position = float(np.linalg.norm(offset))
@@ -63,9 +60,9 @@ class PID_Controller():
 
         return [error_position, error_yaw]
 
-    def update(self, position, orientation):
+    def update(self, goal_position, position, orientation):
 
-        error = self.__update_error(position, orientation)
+        error = self.__update_error(goal_position, position, orientation)
         # print(f"Error Position: {error[POS]}, Error Euler: {error[YAW]}")
 
         self.integral += error[ERR_YAW] * self.dt

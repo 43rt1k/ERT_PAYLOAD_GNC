@@ -95,7 +95,7 @@ class Simulator:
 
             state = self.step(self.GNC.brakes)
 
-            self.GNC.update(self.state, self.time)
+            self.GNC.update(state, self.time)
 
             if self.GNC.phase == FP.LANDED:
                 print(self.VRB_ID, "Reached ground at: ", int(self.time), " s")
@@ -103,4 +103,4 @@ class Simulator:
 
             self.__print_progress()
 
-        return self.GNC.statistics.get()
+        return self.GNC.S.get()
