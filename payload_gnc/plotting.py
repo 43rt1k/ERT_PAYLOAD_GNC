@@ -6,6 +6,7 @@ from matplotlib.widgets import Slider
 from dataclasses import dataclass, field
 
 from payload_gnc.gsim_helper import *
+from payload_gnc.logger import Log
 
 YAW = 2
 
@@ -20,28 +21,37 @@ class Plotter:
         position: np.ndarray
         position_point: object = None
         position_text: object = None
+        position_arrow: object = None
 
         time_lines: list = field(default_factory=list)
 
-    def __init__(self, times, states, brakes, errors, goal_positions,
-                 output_path, file_name):
-        self.times = times
-        self.states = states
+    def __init__(self, log, output_path, file_name):
 
-        self.brakes = self.__make_same_size(brakes)
+        self.times = log[Log.ID.TIMES]
+        self.states = log[Log.ID.STATES]
 
-        self.errors = self.__make_same_size(errors)
+        self.brakes = log[Log.ID.BRAKES]
+        self.brake_command = log[Log.ID.BRAKE_COMMANDS]
 
-        self.positions = np.array(states[POS], dtype=float, copy=True)
+        self.errors = log[Log.ID.ERRORS]
+
+        self.integrals = log[Log.ID.INTEGRALS]
+
+        self.positions = np.array(log[Log.ID.STATES][POS],
+                                  dtype=float,
+                                  copy=True)
         self.positions[:, Z] *= -1
 
-        self.orientation = gsim.orientation.quaternion_to_euler(states[ORI])
+        self.orientation = gsim.orientation.quaternion_to_euler(
+            log[Log.ID.STATES][ORI])
 
-        self.velocities = np.array(states[VEL], dtype=float, copy=True)
+        self.velocities = np.array(log[Log.ID.STATES][VEL],
+                                   dtype=float,
+                                   copy=True)
 
         self.init_position = self.positions[0]
 
-        self.goal_positions = goal_positions
+        self.goal_positions = log[Log.ID.GOAL_POSITIONS]
         self.goal_positions[:, Z] *= -1
 
         self.file_name = file_name
@@ -63,9 +73,16 @@ class Plotter:
         return [
             dict(
                 times=self.times,
-                data=self.positions[:, Z],
-                color="blue",
-                label="Position: Z",
+                data=self.brake_command,
+                color="purple",
+                label="Brake Command",
+                stepped=False,
+            ),
+            dict(
+                times=self.times,
+                data=self.integrals,
+                color="purple",
+                label="Integrals",
                 stepped=False,
             ),
             dict(
@@ -91,14 +108,14 @@ class Plotter:
             ),
             dict(
                 times=self.times,
-                data=np.rad2deg(self.errors[:, YAW_ERROR]),
+                data=np.rad2deg(self.errors[:]),
                 color="red",
                 label="Yaw error",
                 ylabel="[°]",
             ),
             dict(
                 times=self.times,
-                data=self.errors[:, POS_ERROR],
+                data=self.errors[:],
                 color="purple",
                 label="Position error",
                 ylabel="[m]",
@@ -154,18 +171,6 @@ class Plotter:
         )
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-
-    def __make_same_size(self, control_data):
-
-        missing_len = len(self.states) - len(control_data)
-
-        missing_values = np.full(
-            (missing_len, ) + control_data.shape[1:],
-            np.nan,
-            dtype=float,
-        )
-
-        return np.concatenate((missing_values, control_data), axis=0)
 
     def __plot_cross(self, ax, position, label, color="black"):
         label_n_pos = (
@@ -274,7 +279,9 @@ class Plotter:
         ax.set_xlabel("X [m]")
         ax.set_ylabel("Y [m]")
         ax.set_zlabel("Z [m]")
-        ax.set_title("Flight trajectory")
+        ax.set_title(
+            f"Landing error: {np.linalg.norm(self.goal_positions[-1] - self.states[POS][-1]):.2f} [m]"
+        )
 
         ax.plot(
             self.positions[:, X],
@@ -288,8 +295,14 @@ class Plotter:
         for index, position in enumerate(self.goal_positions):
             self.__plot_cross(ax, position, f"Goal {index + 1}", "green")
 
+        # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
         self.snap.position_point, self.snap.position_text = self.__plot_cross(
             ax, self.snap.position, "Payload", color="red")
+
+        self.__update_arrow(0)
+
+        # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
         ax.view_init(elev=40, azim=-60)
         ax.tick_params(labelsize=8)
@@ -357,6 +370,33 @@ class Plotter:
         self.snap.position_text.set_3d_properties(z + 20, zdir=None)
         self.snap.position_text.set_text(
             f"Payload [{x:.0f}, {y:.0f}, {z:.0f}]")
+        self.__update_arrow(index)
+
+    def __update_arrow(self, index):
+        if self.snap.position_arrow is not None:
+            self.snap.position_arrow.remove()
+
+        roll, pitch, yaw = self.orientation[index]
+
+        # Forward direction, with Z pointing upward in your plot.
+        direction = np.array([
+            np.cos(pitch) * np.cos(yaw),
+            np.cos(pitch) * np.sin(yaw),
+            np.sin(pitch),
+        ])
+
+        ax = self.snap.position_point.axes
+
+        self.snap.position_arrow = ax.quiver(
+            *self.positions[index],
+            *direction,
+            length=40,  # Arrow length in metres.
+            normalize=True,
+            pivot="tail",
+            color="orange",
+            linewidth=2,
+            arrow_length_ratio=0.2,
+        )
 
     def __update(self, time):
         index = np.argmin(np.abs(self.times - time))

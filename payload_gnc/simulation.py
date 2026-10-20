@@ -102,5 +102,3 @@ class Simulator:
                 break
 
             self.__print_progress()
-
-        return self.GNC.S.get()

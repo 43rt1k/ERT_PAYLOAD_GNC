@@ -10,6 +10,7 @@ from payload_gnc.controllers.scripted import right_brake_sequence
 from payload_gnc.plotting import Plotter
 from payload_gnc.simulation import Simulator
 from payload_gnc.controllers.controller import GN_Controller
+from payload_gnc.logger import Log
 
 FILE_NAME = Path(__file__).name
 
@@ -45,24 +46,20 @@ VRB_ID = "––MAI | "
 
 def main():
 
-    aircraft = build_basic_aircraft(config["aircraft"])
+    AIR = build_basic_aircraft(config["aircraft"])
 
-    GNC = GN_Controller(config["controller"], config["simulation"]["init_pos"])
+    LOG = Log()
+    GNC = GN_Controller(LOG, config["controller"],
+                        config["simulation"]["init_pos"])
 
-    sim = Simulator(aircraft,
+    SIM = Simulator(AIR,
                     configs=config["simulation"],
                     dt=config["controller"]["dt"],
                     GNC=GNC)
 
-    times, states, brakes, errors, goal_positions = sim.run()
-
-    plotter = Plotter(times=times,
-                      states=states,
-                      brakes=brakes,
-                      errors=errors,
-                      goal_positions=goal_positions,
-                      output_path=output_path,
-                      file_name=FILE_NAME)
+    SIM.run()
+    LOG.pad_all()
+    plotter = Plotter(log=LOG, output_path=output_path, file_name=FILE_NAME)
 
     plotter.save_npz()
     plotter.plot()
