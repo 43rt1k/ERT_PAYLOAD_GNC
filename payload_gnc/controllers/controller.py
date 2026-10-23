@@ -46,8 +46,10 @@ class GN_Controller:
 
         # PHASE ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-        self.phase = FP.STABILISATION
-        self.ex_phase = self.phase
+        self.phase = FP.HOLD
+        self.ex_phase = FP.DEFAULT
+        # self.phase = FP.STABILISATION
+        # self.ex_phase = self.phase
 
         # Status ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -123,8 +125,8 @@ class GN_Controller:
         brakes_XY, error_XY, brake_command_XY, integral_XY = self.C_XY.update(
             self.B)
 
-        if self.phase != FP.APPROACH:
-            return brakes_XY, error_XY, brake_command_XY, integral_XY
+        # if self.phase != FP.APPROACH:
+        return brakes_XY, error_XY, brake_command_XY, integral_XY
 
         brakes_YZ, error_YZ, brake_command_YZ, integral_YZ = self.C_YZ.update(
             self.B)

@@ -31,7 +31,7 @@ class Plotter:
         self.states = log[Log.ID.STATES]
 
         self.brakes = log[Log.ID.BRAKES]
-        self.brake_command = log[Log.ID.BRAKE_COMMANDS]
+        self.brake_commands = log[Log.ID.BRAKE_COMMANDS]
 
         self.errors = log[Log.ID.ERRORS]
 
@@ -48,6 +48,8 @@ class Plotter:
         self.velocities = np.array(log[Log.ID.STATES][VEL],
                                    dtype=float,
                                    copy=True)
+
+        self.speed_xy = np.linalg.norm(self.velocities[:, :2], axis=1)
 
         self.init_position = self.positions[0]
 
@@ -73,16 +75,9 @@ class Plotter:
         return [
             dict(
                 times=self.times,
-                data=self.brake_command,
-                color="purple",
-                label="Brake Command",
-                stepped=False,
-            ),
-            dict(
-                times=self.times,
-                data=self.integrals,
-                color="purple",
-                label="Integrals",
+                data=self.speed_xy,
+                color="green",
+                label="Speed",
                 stepped=False,
             ),
             dict(
@@ -94,29 +89,15 @@ class Plotter:
             ),
             dict(
                 times=self.times,
-                data=self.brakes[:, 0],
-                color="blue",
-                label="Left brake",
-                stepped=True,
-            ),
-            dict(
-                times=self.times,
-                data=self.brakes[:, 1],
-                color="green",
-                label="Right brake",
-                stepped=True,
-            ),
-            dict(
-                times=self.times,
-                data=np.rad2deg(self.errors[:]),
+                data=np.rad2deg(self.errors[:, YAW_ERROR]),
                 color="red",
                 label="Yaw error",
                 ylabel="[°]",
             ),
             dict(
                 times=self.times,
-                data=self.errors[:],
-                color="purple",
+                data=self.errors[:, POS_ERROR],
+                color="red",
                 label="Position error",
                 ylabel="[m]",
             ),
@@ -204,6 +185,42 @@ class Plotter:
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
+    def __plot_brakes(self, ax):
+        ax.step(
+            self.times,
+            -self.brakes[:, L],
+            where="post",
+            color="blue",
+            label="Left brake",
+        )
+        ax.step(
+            self.times,
+            self.brakes[:, R],
+            where="post",
+            color="green",
+            label="Right brake",
+        )
+        ax.step(
+            self.times,
+            self.brake_commands,
+            where="post",
+            color="red",
+            linestyle="--",
+            label="Brake command",
+        )
+
+        time_line = ax.axvline(
+            self.times[0],
+            color="black",
+            linestyle="--",
+            linewidth=1,
+        )
+        self.snap.time_lines.append(time_line)
+
+        ax.set_ylabel("Brakes")
+        ax.legend(loc="upper right")
+        ax.grid(True, alpha=0.3)
+
     def __plot_series(
         self,
         ax,
@@ -235,7 +252,11 @@ class Plotter:
 
     def __plot_graphs(self, figure, slot):
 
-        grid = slot.subgridspec(len(self.plots), 1)
+        j = len(self.plots) + 1
+        grid = slot.subgridspec(j, 1)
+
+        ax_brakes = figure.add_subplot(grid[j - 1, 0])
+        self.__plot_brakes(ax_brakes)
 
         axes = []
 
@@ -247,6 +268,7 @@ class Plotter:
 
             axes.append(ax)
 
+        axes.append(ax_brakes)
         axes[-1].set_xlabel("Time [s]")
 
     def __plot_slider(self, figure, slot):

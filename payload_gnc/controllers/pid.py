@@ -33,6 +33,7 @@ class PID_Controller():
         self.ki = config["ki"]
         self.kd = config["kd"]
         self.ki_max = config["ki_max"]
+        self.error_xy_max = config["error_xy_max"]
         self.max_brake = max_brake
 
         self.type = type
@@ -52,7 +53,7 @@ class PID_Controller():
         if verbose:
             print(
                 self.VRB_ID,
-                f"Initialized PID controller with kp={self.kp}, ki={self.ki}, kd={self.kd}, max_brake={self.max_brake}."
+                f"PT={self.type}, kp={self.kp}, ki={self.ki}, kd={self.kd}, max_brake={self.max_brake}."
             )
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -68,6 +69,11 @@ class PID_Controller():
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
+    def __clip_error_yaw(self, error_yaw):
+        yaw_max = self.error_xy_max * np.pi
+
+        return float(np.clip(error_yaw, -yaw_max, yaw_max))
+
     def __update_error_XY(self, position, orientation):
 
         offset = np.asarray(self.goal_pos) - np.asarray(position)
@@ -76,13 +82,18 @@ class PID_Controller():
         error_position = float(np.linalg.norm(offset))
 
         # Horizontal bearing toward the goal [rad].
-        desired_yaw = np.arctan2(offset[1], offset[0])
+        desired_yaw = np.arctan2(offset[Y], offset[X])
 
         # Shortest signed heading error, in [-pi, pi).
         error_yaw = (desired_yaw - orientation[2] + np.pi) % (2 *
                                                               np.pi) - np.pi
 
+        error_yaw = self.__clip_error_yaw(error_yaw)
+
         return [error_position, error_yaw]
+
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def __update_error_YZ(self, position, arrival_Z):
 

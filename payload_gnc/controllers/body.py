@@ -111,7 +111,7 @@ class Body:
         return self.state[POS][Z] >= 0
 
     def is_hold_done(self):
-        if abs(self.state[POS][Z]) <= self.dist.init_to_hold_Z:
+        if abs(self.state[POS][Z]) <= abs(self.init_pos[Z] * 0.3):
             return True
 
     def is_goal_reached(self, only_XY=False):

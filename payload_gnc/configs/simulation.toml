@@ -1,33 +1,36 @@
 [controller]
-    dt = 1          # s; recorded output spacing
-    goal_position = [-400.0, -1000.0, 0.0]  # m; 
+    dt = 3          # s; recorded output spacing
+    goal_position = [300.0, 300.0, 0.0]  # m; 
 
     max_brake = 0.5
     arrival_margin=50.0
-    hold_coeff = 0.5
+    hold_coeff = 0.8
     goal_margin = 50
 
     stabilisation_time = 10
 
     [controller.pid_XY]
-        kp = 0.7
-        ki = 0.0001
+        kp = 0.3
+        ki = 0.000000001
         kd = 0
-        ki_max = 100
+        ki_max = 1
+
+        error_xy_max = 1 # error_xy_max * np.pi
 
     [controller.pid_YZ]
         kp = 0.8
-        ki = 0.00001
+        ki = 0.0000
         kd = 0
-        ki_max = 10
+        ki_max = 0
+        error_xy_max = 0.5 # error_xy_max * np.pi
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 [simulation]
-    t_sim = 1500.0                  # s
+    t_sim = 1000.0                  # s
 
-    init_pos = [0.0, 0.0, -200.0]      # m; NED coordinates
+    init_pos = [0.0, 0.0, -300.0]      # m; NED coordinates
     init_euler = [0.0, 0.0, 0.0]          # deg; NED Euler angles
 
     rho_air = 1.225                  # kg/m³
