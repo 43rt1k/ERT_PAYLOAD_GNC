@@ -2,6 +2,8 @@ import numpy as np
 from dataclasses import dataclass
 from payload_gnc.gsim_helper import *
 
+APPROACH_COEFF = 0.3
+
 
 class Body:
 
@@ -111,7 +113,7 @@ class Body:
         return self.state[POS][Z] >= 0
 
     def is_hold_done(self):
-        if abs(self.state[POS][Z]) <= abs(self.init_pos[Z] * 0.3):
+        if abs(self.state[POS][Z]) <= abs(self.init_pos[Z] * APPROACH_COEFF):
             return True
 
     def is_goal_reached(self, only_XY=False):
@@ -190,3 +192,43 @@ class Body:
 
         self.__update_speed(stat_states)
         self.__update_arrival_Z()
+
+    def get_approach_target(
+        self,
+        desired_height=0.0,
+        offset_gain=0.5,
+        max_offset=400.0,
+        turn_side=1,
+    ):
+        """Return a temporary target offset sideways from the final goal."""
+        goal = np.asarray(self.goal_pos_final, dtype=float).copy()
+
+        if self.state is None or not np.isfinite(self.arrival_Z):
+            return goal
+
+        position = np.asarray(self.state[POS], dtype=float)
+        to_goal = goal[:2] - position[:2]
+        distance = np.linalg.norm(to_goal)
+
+        if distance < 1e-6:
+            return goal
+
+        toward_goal = to_goal / distance
+
+        # Perpendicular horizontal direction.
+        sideways = turn_side * np.array([
+            -toward_goal[1],
+            toward_goal[0],
+        ])
+
+        arrival_height = goal[Z] - self.arrival_Z
+        excess_height = max(arrival_height - desired_height, 0.0)
+
+        offset = np.clip(
+            offset_gain * excess_height,
+            0.0,
+            max_offset,
+        )
+
+        goal[:2] += offset * sideways
+        return goal

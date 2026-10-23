@@ -46,10 +46,10 @@ class GN_Controller:
 
         # PHASE ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-        self.phase = FP.HOLD
-        self.ex_phase = FP.DEFAULT
-        # self.phase = FP.STABILISATION
-        # self.ex_phase = self.phase
+        # self.phase = FP.HOLD
+        # self.ex_phase = FP.DEFAULT
+        self.phase = FP.STABILISATION
+        self.ex_phase = self.phase
 
         # Status ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -72,11 +72,11 @@ class GN_Controller:
                                    type=PT.XY,
                                    goal_pos=self.B.goal_pos_final)
 
-        self.C_YZ = PID_Controller(config["pid_YZ"],
-                                   config["dt"],
-                                   config["max_brake"],
-                                   type=PT.YZ,
-                                   goal_pos=self.B.goal_pos_final)
+        # self.C_YZ = PID_Controller(config["pid_YZ"],
+        #                            config["dt"],
+        #                            config["max_brake"],
+        #                            type=PT.YZ,
+        #                            goal_pos=self.B.goal_pos_final)
         self.L = log
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -151,6 +151,13 @@ class GN_Controller:
         self.time = float(time)
 
         self.__update_phase()
+
+        if self.phase == FP.APPROACH:
+            target = self.B.get_approach_target()
+
+            self.B.goal_pos = target.copy()
+            self.C_XY.goal_pos = target.copy()
+
         self.brakes, self.error, brake_command, integral = self.__update_controller(
         )
 

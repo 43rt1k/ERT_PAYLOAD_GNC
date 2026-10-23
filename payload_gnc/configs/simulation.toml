@@ -11,9 +11,9 @@
 
     [controller.pid_XY]
         kp = 0.3
-        ki = 0.000000001
+        ki = 0.00001
         kd = 0
-        ki_max = 1
+        ki_max = 2
 
         error_xy_max = 1 # error_xy_max * np.pi
 
