@@ -1,5 +1,6 @@
 # Virtual environments
 .RTvenv/
+.style.yapf
 
 # Python generated files
 __pycache__/
@@ -16,3 +17,4 @@ results/
 .DS_Store
 
 .vscode/
+
