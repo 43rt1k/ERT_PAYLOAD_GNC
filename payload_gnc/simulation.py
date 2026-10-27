@@ -9,10 +9,13 @@ from payload_gnc.gsim_helper import *
 from payload_gnc.controllers.controller import GN_Controller, FP
 
 
+
+
+
 class Simulator:
 
     def __init__(self, aircraft, *, configs, dt, GNC, wind=(0, 0, 0)):
-        self.VRB_ID = "––SIM | "
+        self.VRB_ID = "SIM"
         self.vrb_progress = False
 
         self.init_pos = configs["init_pos"]
@@ -51,13 +54,13 @@ class Simulator:
     def __init_model(self, aircraft, configs, wind):
 
         return gsim.simulator.ParagliderStateDynamics6a(
-            aircraft,
-            delta_a=0,
-            delta_bl=self.__get_bl,
-            delta_br=self.__get_br,
-            delta_w=0,
-            rho_air=configs["rho_air"],
-            v_W2e=wind,
+                    aircraft,
+                    delta_a=0,
+                    delta_bl=self.__get_bl,
+                    delta_br=self.__get_br,
+                    delta_w=0,
+                    rho_air=configs["rho_air"],
+                    v_W2e=wind,
         )
 
     def __init_state(self):
@@ -94,11 +97,6 @@ class Simulator:
         while self.time < self.end_time:
 
             state = self.step(self.GNC.brakes)
-
             self.GNC.update(state, self.time)
 
-            if self.GNC.phase == FP.LANDED:
-                print(self.VRB_ID, "Reached ground at: ", int(self.time), " s")
-                break
-
-            self.__print_progress()
+            if self.GNC.P == FP.LANDED: break

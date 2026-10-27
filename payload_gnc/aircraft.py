@@ -1,38 +1,45 @@
 import io
 from contextlib import redirect_stdout
+from payload_gnc.gsim_helper import *
 import pfh.glidersim as gsim
+
+
+
 
 
 def build_basic_aircraft(config, verbose=True):
 
-    VRB_ID = "––AIR | "
+    VRB_ID = "AIR"
     wing_config = config["wing"]
 
     with redirect_stdout(io.StringIO()):
-        wing = gsim.extras.wings.niviuk_hook3(size=wing_config["default_size"],
-                                              verbose=False)
+        wing = gsim.extras.wings.niviuk_hook3(size=wing_config["default_size"], verbose=False)
 
     payload_config = config["payload"]
     payload = gsim.paraglider_harness.Spherical(
-        mass=payload_config["mass"],
-        z_riser=payload_config["z_riser"],
-        S=payload_config["S"],
-        CD=payload_config["CD"],
-        kappa_w=payload_config["kappa_w"],
+                mass=payload_config["mass"],
+                z_riser=payload_config["z_riser"],
+                S=payload_config["S"],
+                CD=payload_config["CD"],
+                kappa_w=payload_config["kappa_w"],
     )
     paraglider = gsim.paraglider.ParagliderSystemDynamics6a(wing, payload)
 
     if verbose:
-        print(
-            VRB_ID,
-            f"Built paraglider with wing size {wing_config['default_size']} m² and payload mass {payload_config['mass']} kg."
-        )
+        text = f"Wing: {wing_config['default_size']} [m2], payload: {payload_config['mass']} [kg]"
+        print_message(VRB_ID, text)
 
     return paraglider
 
 
+
+
+
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
+
+
 
 
 def build_demo_aircraft():
@@ -40,11 +47,7 @@ def build_demo_aircraft():
     wing = gsim.extras.wings.niviuk_hook3(size=23, verbose=False)
 
     harness = gsim.paraglider_harness.Spherical(
-        mass=75,
-        z_riser=0.5,
-        S=0.55,
-        CD=0.8,
-        kappa_w=0.1,
+                mass=75, z_riser=0.5, S=0.55, CD=0.8, kappa_w=0.1,
     )
 
     return gsim.paraglider.ParagliderSystemDynamics6a(wing, harness)

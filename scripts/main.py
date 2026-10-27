@@ -12,15 +12,25 @@ from payload_gnc.simulation import Simulator
 from payload_gnc.controllers.controller import GN_Controller
 from payload_gnc.logger import Log
 
+
+
+
+
 FILE_NAME = Path(__file__).name
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 
+
+
+
 def load_config(path):
     with open(path, "rb") as file:
         return tomllib.load(file)
+
+
+
 
 
 def init_config():
@@ -30,10 +40,12 @@ def init_config():
     output_path = project_root_path / "results"
     output_path.mkdir(parents=True, exist_ok=True)
 
-    config = load_config(project_root_path / "payload_gnc" / "configs" /
-                         "simulation.toml")
+    config = load_config(project_root_path / "payload_gnc" / "configs" / "simulation.toml")
 
     return project_root_path, output_path, config
+
+
+
 
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -44,25 +56,26 @@ project_root_path, output_path, config = init_config()
 VRB_ID = "––MAI | "
 
 
+
+
+
 def main():
 
     AIR = build_basic_aircraft(config["aircraft"])
 
     LOG = Log()
-    GNC = GN_Controller(LOG, config["controller"],
-                        config["simulation"]["init_pos"])
+    GNC = GN_Controller(LOG, config["controller"], config["simulation"]["init_pos"])
 
-    SIM = Simulator(AIR,
-                    configs=config["simulation"],
-                    dt=config["controller"]["dt"],
-                    GNC=GNC)
+    SIM = Simulator(AIR, configs=config["simulation"], dt=config["controller"]["dt"], GNC=GNC)
 
     SIM.run()
     LOG.pad_all()
-    plotter = Plotter(log=LOG, output_path=output_path, file_name=FILE_NAME)
 
-    plotter.save_npz()
+    plotter = Plotter(log=LOG, output_path=output_path, file_name=FILE_NAME)
     plotter.plot()
+
+
+
 
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
