@@ -76,3 +76,4 @@ def deg2rad(angle):
 
 def q2euler(q):
     return gsim.orientation.quaternion_to_euler(q)
+

@@ -158,7 +158,7 @@ class Plotter:
         x, y, z = position
 
         sign = 1
-        if top is False: sign = -4
+        if top is False: sign = -1.5
 
 
         point, = ax.plot(
@@ -174,7 +174,7 @@ class Plotter:
         text = ax.text(
                     x,
                     y,
-                    z + sign * 25,    # 20 m above the cross in plotted altitude
+                    z + sign * 20,    # 20 m above the cross in plotted altitude
                     label_n_pos,
                     color=color,
                     fontsize=5,
@@ -292,12 +292,12 @@ class Plotter:
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     def __plot_phases(self, ax, phase):
-        pos = np.array(phase.pos, dtype=float, copy=True)
+        pos = np.array(phase.pos_now, dtype=float, copy=True)
         pos[Z] *= -1    # NED → altitude.
 
         text = (f"{phase.ex.name} → {phase.now.name} | {phase.time_now:.1f}s | ")
 
-        self.__plot_cross(ax, pos, text, color="c", marker="v", top=False)
+        self.__plot_cross(ax, pos, text, color="m", marker="v", top=False)
 
     def __plot_goals(self, ax):
         unique_goals = []

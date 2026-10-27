@@ -37,7 +37,8 @@ class GN_Controller:
         ex: FP
         time_now: float
         time_ex: float
-        pos: np.ndarray
+        pos_now: np.ndarray
+        pos_ex: np.ndarray
         goal_pos: np.ndarray
 
         def __eq__(self, other):
@@ -54,11 +55,12 @@ class GN_Controller:
 
             self.ex = self.now
             self.time_ex = self.time_now
+            self.pos_ex = self.pos_now
 
             self.now = phase
             self.time_now = float(time)
 
-            self.pos = np.array(pos, dtype=float, copy=True)
+            self.pos_now = np.array(pos, dtype=float, copy=True)
             self.goal_pos = np.array(goal_pos, dtype=float, copy=True)
 
     def __init__(self, log, config, initial_position, brakes=[0, 0]):
@@ -111,16 +113,18 @@ class GN_Controller:
 
         now = FP.STABILISATION
         time_now = self.time
-        self.P = self.Phase(now,
-                            now,
-                            time_now,
-                            time_now,
-                            np.array(initial_position),
-                            self.B.goal_pos)
+        self.P = self.Phase(now=now,
+                            ex=now,
+                            time_now=time_now,
+                            time_ex=time_now,
+                            pos_ex=np.array(initial_position),
+                            pos_now=np.array(initial_position),
+                            goal_pos=self.B.goal_pos)
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
     def __set_phase(self, phase):
 
         self.P.set(phase, self.time, self.B.state[POS], self.B.goal_pos)
@@ -162,6 +166,7 @@ class GN_Controller:
             self.__set_phase(FP.DEFAULT)
             self.B.set_goal()
             self.C.reset(self.B.goal_pos_final)
+            self.B.get_min_rad(self.P, self.L)
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
         # PHASE APPROACH: Approach the final goal position in circles to lose altitude

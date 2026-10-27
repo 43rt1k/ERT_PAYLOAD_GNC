@@ -1,6 +1,7 @@
 import numpy as np
 from dataclasses import dataclass
 from payload_gnc.gsim_helper import *
+from payload_gnc.logger import *
 
 
 
@@ -8,6 +9,7 @@ from payload_gnc.gsim_helper import *
 
 ARRIVAL_Z = 100
 Z_COEFF = 3
+DEG_TOL = 15
 
 
 
@@ -45,6 +47,7 @@ class Body:
         self.VRB_ID = "BOD"
         self.vrb_goal = True
         self.vrb_arr = False
+        self.vrb_rad = True
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -66,6 +69,7 @@ class Body:
         self.speed = self.Speed()
 
         self.arrival_Z = 0
+        self.minR = 0
 
     def _init_dist(self, hold_coeff, goal_margin):
         dist = self.Dist()
@@ -147,6 +151,33 @@ class Body:
 
         if self.vrb_arr:
             print(self.VRB_ID, f"Arrival Z: {self.arrival_Z:.2f}", get_time_str(self.time))
+
+    def get_min_rad(self, P, L):
+
+        times = np.asarray(L[Log.ID.TIMES], dtype=float)
+        states = np.asarray(L[Log.ID.STATES])
+
+        mask = (times >= P.time_ex) & (times <= P.time_now)
+        states = states[mask]
+
+        yaw = q2euler(states[ORI])[:, XY]
+        opp_yaw = yaw[0] + np.pi
+
+        error = np.abs(deg2rad(yaw - opp_yaw))
+
+        index = np.argmin(error)
+
+        min_error = error[index]
+        opposite_position = states[POS][index]
+        # Aircraft position when HOLD began.
+
+        diameter = np.linalg.norm(opposite_position[: XY] - P.pos_ex[: XY])
+        radius = float(diameter / 2)
+
+        if self.vrb_rad:
+            print_message(self.VRB_ID, f"Minimal turning radius = {int(radius)}", self.time)
+
+        return radius
 
     def update(self, state, time, stat_states):
 

@@ -1,7 +1,7 @@
 [controller]
     dt = 3          # s; recorded output spacing
     # goal_position = [500.0, 300.0, 0.0]  # m; 
-    goal_position = [1000.0, -600.0, 0.0]  # m; 
+    goal_position = [500.0, -200.0, 0.0]  # m; 
 
     max_brake = 0.5
     arrival_margin=50.0
@@ -12,9 +12,9 @@
 
     [controller.pid_H]
         kp = 0.1
-        ki = 0.01
+        ki = 0.02
         kd = 0
-        ki_max = 100
+        ki_max = 1000
 
         error_xy_max = 1 # error_xy_max * np.pi
 

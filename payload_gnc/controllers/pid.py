@@ -154,7 +154,7 @@ class PID_Circle(Controller):
         self.center = None
         self.radius = None
         self.radial_gain = 1.0
-        self.previous_heading_error = None
+        self.error_prev = None
 
     def start_circle(self, body, height_loss=100.0):
         """Call once when switching into circle mode."""
@@ -168,7 +168,7 @@ class PID_Circle(Controller):
         right = np.array([-np.sin(yaw), np.cos(yaw)])
 
         self.center = body.goal_pos_final[: XY] + self.radius * right
-        self.previous_heading_error = None
+        self.error_prev = None
 
     def _update_error(self, body):
 
@@ -204,13 +204,13 @@ class PID_Circle(Controller):
 
         heading_error = self.error[ERR_YAW]
 
-        if self.previous_heading_error is None:
+        if self.error_prev is None:
             derivative = 0.0
         else:
-            difference = (heading_error - self.previous_heading_error + np.pi) % (2 * np.pi) - np.pi
+            difference = (heading_error - self.error_prev + np.pi) % (2 * np.pi) - np.pi
             derivative = difference / self.dt
 
-        self.previous_heading_error = heading_error
+        self.error_prev = heading_error
 
         brake_command = (self.kp * heading_error + self.ki * self.integral + self.kd * derivative)
 
