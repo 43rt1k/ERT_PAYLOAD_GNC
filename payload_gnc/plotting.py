@@ -90,17 +90,10 @@ class Plotter:
                     ),
                     dict(
                                 times=self.times,
-                                data=np.rad2deg(self.errors[:, YAW_ERROR]),
+                                data=np.rad2deg(self.errors[:]),
                                 color="red",
                                 label="Yaw error",
                                 ylabel="[°]",
-                    ),
-                    dict(
-                                times=self.times,
-                                data=self.errors[:, POS_ERROR],
-                                color="red",
-                                label="Position error",
-                                ylabel="[m]",
                     ), ]
 
     def __define_table_rows(self):

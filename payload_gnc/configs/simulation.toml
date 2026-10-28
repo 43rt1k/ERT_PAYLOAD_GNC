@@ -1,7 +1,9 @@
 [controller]
     dt = 3          # s; recorded output spacing
     # goal_position = [500.0, 300.0, 0.0]  # m; 
-    goal_position = [500.0, -200.0, 0.0]  # m; 
+    # goal_position = [500.0, -200.0, 0.0]  # m; 
+    # goal_position = [-500.0, 200.0, 0.0]  # m; 
+    goal_position = [-500.0, -200.0, 0.0]  # m; 
 
     max_brake = 0.5
     arrival_margin=50.0
@@ -11,18 +13,18 @@
     stabilisation_time = 10
 
     [controller.pid_H]
-        kp = 0.1
-        ki = 0.02
-        kd = 0
-        ki_max = 1000
+        kp = 0.12
+        ki = 0.005
+        kd = 0.1
+        ki_max = 500
 
         error_xy_max = 1 # error_xy_max * np.pi
 
     [controller.pid_C]
-        kp = 0.8
-        ki = 0.0000
-        kd = 0
-        ki_max = 0
+        kp = 0.08
+        ki = 0.005
+        kd = 1      
+        ki_max = 100
         error_xy_max = 0.5 # error_xy_max * np.pi
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––

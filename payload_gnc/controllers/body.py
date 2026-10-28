@@ -70,6 +70,7 @@ class Body:
 
         self.arrival_Z = 0
         self.minR = 0
+        self.minZloss = 0
 
     def _init_dist(self, hold_coeff, goal_margin):
         dist = self.Dist()
@@ -172,12 +173,13 @@ class Body:
         # Aircraft position when HOLD began.
 
         diameter = np.linalg.norm(opposite_position[: XY] - P.pos_ex[: XY])
-        radius = float(diameter / 2)
+        self.minR = float(diameter / 2)
+        self.minZloss = P.pos_now[Z] - P.pos_ex[Z]
 
         if self.vrb_rad:
-            print_message(self.VRB_ID, f"Minimal turning radius = {int(radius)}", self.time)
-
-        return radius
+            print_message(self.VRB_ID,
+                          f"Min rad = {int(self.minR)} | Min Z loss = {int(self.minZloss)}",
+                          self.time)
 
     def update(self, state, time, stat_states):
 

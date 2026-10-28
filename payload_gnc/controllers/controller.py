@@ -6,7 +6,7 @@ from enum import Enum, auto
 import pfh.glidersim as gsim
 
 from payload_gnc.gsim_helper import *
-from payload_gnc.controllers.pid import PID_Header, PID_Circle
+from payload_gnc.controllers.pid import PID_Header, PID_Rotation
 from payload_gnc.logger import Log
 from payload_gnc.controllers.body import Body
 
@@ -20,7 +20,6 @@ from payload_gnc.controllers.body import Body
 class FP(Enum):
     STABILISATION = auto()
     DEFAULT = auto()
-    #TODO: Add min radius calculation after the end of this stage
     HOLD = auto()
     APPROACH = auto()
     LANDED = auto()
@@ -100,10 +99,10 @@ class GN_Controller:
                                 config["max_brake"],
                                 goal_pos=self.B.goal_pos_final)
 
-        self.PID_C = PID_Circle(config["pid_C"],
-                                config["dt"],
-                                config["max_brake"],
-                                goal_pos=self.B.goal_pos_final)
+        self.PID_C = PID_Rotation(config["pid_C"],
+                                  config["dt"],
+                                  config["max_brake"],
+                                  goal_pos=self.B.goal_pos_final)
 
         self.C = self.PID_H
 
@@ -173,7 +172,7 @@ class GN_Controller:
         elif self.P == FP.DEFAULT and self.P.ex == FP.HOLD and self.B.is_at_goal():
             self.__set_phase(FP.APPROACH)
             self.C = self.PID_C
-            self.C.start_circle(self.B, height_loss=50.0)
+            self.C.init(self.B)
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
         # PHASE DEFAULT: Return to standard controlling for the best goal matcing (optional)
