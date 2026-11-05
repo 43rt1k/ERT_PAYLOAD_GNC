@@ -19,6 +19,8 @@ XYZ = 3
 L = 0
 R = 1
 
+YAW = 2
+
 LOG_LEN = 55
 
 
@@ -76,4 +78,3 @@ def deg2rad(angle):
 
 def q2euler(q):
     return gsim.orientation.quaternion_to_euler(q)
-

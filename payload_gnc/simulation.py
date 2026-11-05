@@ -64,9 +64,23 @@ class Simulator:
         )
 
     def __init_state(self):
-
         state = self.model.starting_equilibrium()
-        state[POS] = self.init_pos.copy()
+        state[POS] = np.asarray(self.init_pos, dtype=float)
+
+        # Keep equilibrium roll and pitch.
+        euler = gsim.orientation.quaternion_to_euler(state[ORI])
+        target_yaw = np.deg2rad(self.init_euler[YAW])
+        delta_yaw = target_yaw - euler[YAW]
+
+        euler[YAW] = target_yaw
+        state[ORI] = gsim.orientation.euler_to_quaternion(euler)
+
+        # Rotate velocity by the same heading change.
+        vx, vy = state[VEL][: XY].copy()
+        c, s = np.cos(delta_yaw), np.sin(delta_yaw)
+
+        state[VEL][0] = c * vx - s * vy
+        state[VEL][1] = s * vx + c * vy
 
         return state
 
@@ -96,7 +110,7 @@ class Simulator:
 
         while self.time < self.end_time:
 
-            state = self.step(self.GNC.brakes)
+            state = self.step(self.GNC.B.brakes)
             self.GNC.update(state, self.time)
 
             if self.GNC.P == FP.LANDED: break

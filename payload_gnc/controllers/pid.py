@@ -40,6 +40,7 @@ class Controller(ABC):
 
         self.error: float
         self.brake: list[float]
+        self.brake_command: list[float]
         self.integral: float
         self.prev_error: float
         self.goal_pos = None
@@ -49,14 +50,16 @@ class Controller(ABC):
         self._print_init()
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-    @abstractmethod
-    def update(self, body):
-        pass
 
     @abstractmethod
     def _update_error(self, body):
         pass
+
+    @abstractmethod
+    def update(self):
+        pass
+
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def reset(self, goal_pos=None):
 
@@ -71,28 +74,27 @@ class Controller(ABC):
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
+    def _set_brake(self, command=None):
+        if command is None: command = self.brake_command
+        brake_command = float(np.clip(command, -self.max_brake, self.max_brake))
+        self.brake = [max(-brake_command, 0.0), max(brake_command, 0.0)]
+
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+
     def _update_ki(self):
         self.integral = float(
                     np.clip(self.integral + self.error * self.dt, -self.ki_max, self.ki_max))
 
-    def update(self, B: Body):
-
-        self.error = self._update_error(B)
-
-        self._print_error()
+    def _update_basic(self, B: Body):
 
         self._update_ki()
 
         derivative = (self.error - self.prev_error) / self.dt
         self.prev_error = self.error
 
-        brake_command = (self.kp * self.error + self.ki * self.integral + self.kd * derivative)
-
-        command = float(np.clip(brake_command, -self.max_brake, self.max_brake))
-
-        self.brake = [max(-command, 0.0), max(command, 0.0)]
-
-        return self.brake, self.error, brake_command, self.integral
+        self.brake_command = (self.kp * self.error + self.ki * self.integral + self.kd * derivative)
+        self._set_brake()
+        return self.brake, self.error, self.brake_command, self.integral
 
     def _print_init(self):
         if self.vrb_init:
@@ -107,37 +109,33 @@ class Controller(ABC):
 
 
 
-class PID_Header(Controller):
+# class PID_Header(Controller):
 
-    def __init__(self, config, dt, max_brake, goal_pos=None, verbose=True):
-        super().__init__(config, "C_H", dt, "deg", max_brake, goal_pos)
+#     def __init__(self, config, dt, max_brake, goal_pos=None, verbose=True):
+#         super().__init__(config, "C_H", dt, "deg", max_brake, goal_pos)
 
-        self.error_xy_max = config["error_xy_max"]
+#         self.error_xy_max = config["error_xy_max"]
 
-    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+#     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def __clip_error_yaw(self, error_yaw):
-        yaw_max = self.error_xy_max * np.pi
+#     def __clip_error_yaw(self, error_yaw):
+#         yaw_max = self.error_xy_max * np.pi
 
-        return float(np.clip(error_yaw, -yaw_max, yaw_max))
+#         return float(np.clip(error_yaw, -yaw_max, yaw_max))
 
-    def _update_error(self, B):
+#     def _update_error(self, B):
 
-        offset = np.asarray(self.goal_pos[: XY]) - np.asarray(B.state[POS][: XY])
+#         offset = np.asarray(self.goal_pos[: XY]) - np.asarray(B.state[POS][: XY])
 
-        # Horizontal bearing toward the goal [rad].
-        desired_yaw = np.arctan2(offset[Y], offset[X])
+#         # Horizontal bearing toward the goal [rad].
+#         desired_yaw = np.arctan2(offset[Y], offset[X])
 
-        # Shortest signed heading error, in [-pi, pi).
-        error = (desired_yaw - B.orientation[2] + np.pi) % (2 * np.pi) - np.pi
+#         # Shortest signed heading error, in [-pi, pi).
+#         error = (desired_yaw - B.orientation[2] + np.pi) % (2 * np.pi) - np.pi
 
-        error = self.__clip_error_yaw(error)
+#         error = self.__clip_error_yaw(error)
 
-        return error
-
-
-
-
+#         return error
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -149,93 +147,78 @@ class PID_Header(Controller):
 
 class PID_Rotation(Controller):
 
-    def __init__(self, config, dt, max_brake, goal_pos=None, verbose=True):
+    def __init__(self, config, dt, max_brake, goal_pos=None):
         super().__init__(config, "C_C", dt, "m", max_brake, goal_pos)
-        self.vrb_init
+        self.min_ang = np.pi / 5
+
+        self.center_pos = None
+        self.to_center = None
         self.r = None
-        self.r_min = None
-        self.r_max = R_MAX
 
-        self.center = None
-        self.center_dir = None
+        # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-        self.error_prev = None
-        self.loops = []
+    def _update_error(self, B: Body, center_pos, r):
 
-    def __get_h_loop(self, speed, R, angle=(2 * np.pi)):
+        self.to_center = np.asarray(center_pos, dtype=float)[: XY] - B.pos[: XY]
+        distance = np.linalg.norm(self.to_center)
 
-        speed_xy = np.linalg.norm(speed[: XY])
+        self.error = float(distance - r)
 
-        duration = R * abs(angle) / speed_xy
+    def __update_brake_side(self, B: Body):
 
-        return speed[Z] * duration
+        brake = self.brake.copy()
 
-    def __get_r(self, speed, h, angle=(2 * np.pi)):
+        # Signed 2D cross product, using North–East coordinates.
+        side = (B.vel[X] * self.to_center[Y] - B.vel[Y] * self.to_center[X])
 
-        speed_xy = np.linalg.norm(speed[: XY])
-        duration = h / speed[Z]
-        return duration * speed_xy / abs(angle)
+        # Centre on the left: reverse steering.
+        if side <= 0:
+            self.brake = [brake[Y], brake[X]]
+            self.brake_command = -self.brake_command
 
-    def __init_loops(self, B: Body):
+    def __update_extreme(self, B: Body):
+        vel = np.asarray(B.vel[: XY], dtype=float)
+        speed = np.linalg.norm(vel)
+        distance = np.linalg.norm(self.to_center)
 
-        h = max(float(B.goal_pos_final[Z] - B.state[POS][Z]), 0.0)
-        # print("h=", h)
-        speed = B.state[VEL]
-        r_basic = (self.r_min + self.r_max) / 2
+        cosine = np.clip(np.dot(vel, self.to_center) / (speed * distance), -1.0, 1.0)
+        angle = abs(np.arccos(np.clip(cosine, -1.0, 1.0)))
 
-        while r_basic > self.r_min:
+        if angle > np.pi - self.min_ang:
+            print(angle)
+            self.brake_command = self.max_brake
+            self._set_brake()
 
-            # print("r_basic=", r_basic)
+    def update(self, B, center_pos, r):
+        self._update_error(B, center_pos, r)
+        self._print_error()
 
-            h_loop = self.__get_h_loop(speed, r_basic)
+        self._update_basic(B)
 
-            loop_nb = int(h / h_loop)
+        self.__update_extreme(B)
 
-            h_top = h - loop_nb * h_loop
+        self.__update_brake_side(B)
 
-            if np.isclose(h_top, 0.0, atol=10.0):
-                self.loops = [r_basic] * loop_nb
-                return
+        return self.brake, self.error, self.brake_command, self.integral
 
-            r_top = self.__get_r(speed, h_top)
+    # def __print_init_loops(self):
+    #     if self.vrb_init:
+    #         text = (f"Init: loops=[{', '.join(f'{v:.1f}' for v in self.loops)}]")
+    #         print_message(self.VRB_ID, text)
 
-            # print("r_top=", r_top, ", loop_nb=", loop_nb)
+    # def init(self, body):
+    #     self.r_min = body.minR
+    #     self.__init_loops(body)
+    #     self.__init_center(body)
 
-            # if self.r_min <= r_top <= self.r_max:
-            #     self.loops = [r_basic] * loop_nb + [r_top]
-            #     return
+    #     self.__print_init_loops()
 
-            r_basic -= 1.0
+    # def _update_error(self, body):
 
-        raise ValueError("No valid loop plan found with this radius search.")
+    #     position = np.asarray(body.state[POS], dtype=float)
 
-    def __init_center(self, body: Body):
-        velocity_xy = np.asarray(body.state[VEL], dtype=float)[: XY]
-        speed_xy = np.linalg.norm(velocity_xy)
+    #     distance = np.linalg.norm(position[: 2] - self.center[: 2])
 
-        self.center_dir = np.array([-velocity_xy[Y], velocity_xy[X]]) / speed_xy
+    #     radius = self.loops[0]
 
-        self.center = np.array(self.goal_pos, dtype=float, copy=True)
-        self.center[: XY] += self.center_dir * self.loops[-1]
-
-    def __print_init_loops(self):
-        if self.vrb_init:
-            text = (f"Init: loops=[{', '.join(f'{v:.1f}' for v in self.loops)}]")
-            print_message(self.VRB_ID, text)
-
-    def init(self, body):
-        self.r_min = body.minR
-        self.__init_loops(body)
-        self.__init_center(body)
-
-        self.__print_init_loops()
-
-    def _update_error(self, body):
-
-        position = np.asarray(body.state[POS], dtype=float)
-
-        distance = np.linalg.norm(position[: 2] - self.center[: 2])
-
-        radius = self.loops[0]
-
-        return float(distance - radius)
+    #     return float(distance - radius)

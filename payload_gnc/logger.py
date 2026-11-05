@@ -1,6 +1,7 @@
 import numpy as np
 from enum import Enum, auto
 from copy import deepcopy
+from payload_gnc.gsim_helper import *
 
 
 
@@ -9,13 +10,13 @@ from copy import deepcopy
 class Log:
 
     class ID(Enum):
-        TIMES = auto()
-        STATES = auto()
-        BRAKES = auto()
+
+        BODY = auto()
         BRAKE_COMMANDS = auto()
         ERRORS = auto()
         INTEGRALS = auto()
         PHASES = auto()
+        CENTERS = auto()
 
     def __init__(self):
         self.VRB_ID = "––LOG | "
@@ -28,14 +29,14 @@ class Log:
         return self.data[key]
 
     def pad_all(self):
-        target_len = len(self.data[self.ID.STATES])
+        target_len = len(self.data[self.ID.BODY])
 
         for key, values in self.data.items():
             if key == self.ID.PHASES:
                 # Keep phase snapshots as a list; do not pad them.
                 continue
 
-            if key == self.ID.STATES:
+            if key == self.ID.BODY:
                 self.data[key] = np.asarray(values)
                 continue
 
@@ -50,10 +51,13 @@ class Log:
 
             self.data[key] = np.concatenate((padding, data), axis=0)
 
-    def update(self, time, state, brakes, brake_command, integral, error, phase):
-        self.data[self.ID.TIMES].append(float(time))
-        self.data[self.ID.STATES].append(state.copy())
-        self.data[self.ID.BRAKES].append(np.array(brakes, copy=True))
+    def update_centers(self, center, r):
+        data = np.array([center[X], center[Y], r], dtype=float)
+        self.data[self.ID.CENTERS].append(data)
+
+    def update(self, B, brake_command, integral, error, phase):
+
+        self.data[self.ID.BODY].append(deepcopy(B))
         self.data[self.ID.BRAKE_COMMANDS].append(float(brake_command))
         self.data[self.ID.ERRORS].append(np.array(error, dtype=float, copy=True))
         self.data[self.ID.INTEGRALS].append(float(integral))

@@ -7,7 +7,7 @@ import pfh.glidersim as gsim
 
 from payload_gnc.aircraft import build_basic_aircraft
 from payload_gnc.controllers.scripted import right_brake_sequence
-from payload_gnc.plotting import Plotter
+from payload_gnc.plotter import Plotter
 from payload_gnc.simulation import Simulator
 from payload_gnc.controllers.controller import GN_Controller
 from payload_gnc.logger import Log

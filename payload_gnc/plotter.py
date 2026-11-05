@@ -3,6 +3,8 @@ import matplotlib
 import numpy as np
 import pfh.glidersim as gsim
 from matplotlib.widgets import Slider
+from matplotlib.ticker import MultipleLocator
+
 from dataclasses import dataclass, field
 
 from payload_gnc.gsim_helper import *
@@ -11,6 +13,8 @@ from payload_gnc.logger import Log
 
 
 
+
+STEP = 100    # metres between grid lines
 
 YAW = 2
 
@@ -34,28 +38,27 @@ class Plotter:
 
     def __init__(self, log, output_path, file_name):
 
-        self.times = log[Log.ID.TIMES]
-        self.states = log[Log.ID.STATES]
+        self.Bs = log[Log.ID.BODY]
 
-        self.brakes = log[Log.ID.BRAKES]
-        self.brake_commands = log[Log.ID.BRAKE_COMMANDS]
+        self.times = np.asarray([b.time for b in self.Bs], dtype=float)
+        self.brakes = np.asarray([b.brakes for b in self.Bs], dtype=float)
 
-        self.errors = log[Log.ID.ERRORS]
+        self.positions = np.array([b.pos for b in self.Bs], dtype=float)
+        self.positions[:, Z] *= -1    # NED → altitude, only for plotting.
 
-        self.integrals = log[Log.ID.INTEGRALS]
-
-        self.phases = log[Log.ID.PHASES]
-
-        self.positions = np.array(log[Log.ID.STATES][POS], dtype=float, copy=True)
-        self.positions[:, Z] *= -1
-
-        self.orientation = gsim.orientation.quaternion_to_euler(log[Log.ID.STATES][ORI])
-
-        self.velocities = np.array(log[Log.ID.STATES][VEL], dtype=float, copy=True)
+        self.velocities = np.array([b.vel for b in self.Bs], dtype=float)
+        self.orientation = np.array([b.ori for b in self.Bs], dtype=float)
+        # self.angular_velocities = np.array([b.rot for b in self.bodys], dtype=float)
 
         self.speed_xy = np.linalg.norm(self.velocities[:, : 2], axis=1)
 
-        self.init_position = self.positions[0]
+        self.brake_commands = np.asarray(log[Log.ID.BRAKE_COMMANDS])
+        self.errors = np.asarray(log[Log.ID.ERRORS])
+        self.integrals = np.asarray(log[Log.ID.INTEGRALS])
+        self.phases = log[Log.ID.PHASES]
+        self.centers = log[Log.ID.CENTERS]
+        print(self.centers)
+        self.init_position = self.positions[0].copy()
 
         self.file_name = file_name
         self.output_path = output_path
@@ -98,39 +101,33 @@ class Plotter:
 
     def __define_table_rows(self):
         return [
-                    dict(
-                                label="Position",
-                                data=self.positions,
-                                components="X , Y , Z",
-                                unit="[m]",
-                    ),
-                    dict(
-                                label="Velocity",
-                                data=self.velocities,
-                                components="X , Y , Z",
-                                unit="[m/s]",
-                    ),
-                    dict(
-                                label="Orientation",
-                                data=np.rad2deg(self.orientation),
-                                components="Roll , Pitch , Yaw",
-                                unit="[°]",
-                    ),
-                    dict(
-                                label="Angular velocity",
-                                data=np.rad2deg(self.states["omega_b2e"]),
-                                components="Body p , q , r",
-                                unit="[°/s]",
-                    ), ]
+                    dict(label="Position", data=self.positions, components="X , Y , Z", unit="[m]"),
+                    dict(label="Velocity",
+                         data=self.velocities,
+                         components="X , Y , Z",
+                         unit="[m/s]"),
+                    dict(label="Orientation",
+                         data=np.rad2deg(self.orientation),
+                         components="Roll , Pitch , Yaw",
+                         unit="[°]")]
+
+
+
+
 
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def save_npz(self):
-        np.savez(
-                    self.output_path / f"{self.file_name}.npz",
-                    times=self.times,
-                    states=self.states,
-        )
+        np.savez(self.output_path / f"{self.file_name}.npz",
+                 times=self.times,
+                 positions_ned=np.asarray([b.pos for b in self.Bs]),
+                 velocities=self.velocities,
+                 orientation_euler=self.orientation,
+        #  angular_velocities=self.angular_velocities,
+                 brakes=self.brakes,
+                 brake_commands=self.brake_commands,
+                 errors=self.errors,
+                 integrals=self.integrals)
 
     def save_png(self, figure):
         figure.savefig(self.output_path / f"{self.file_name}.png", dpi=180)
@@ -142,7 +139,7 @@ class Plotter:
                     self.output_path / f"{self.file_name}_overview.png", dpi=180,
         )
 
-# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def __plot_cross(self, ax, position, label, color="black", marker="X", top=True):
         label_n_pos = (f"{label} "
@@ -176,11 +173,7 @@ class Plotter:
         )
         return point, text
 
-
-
-
-
-# ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
+    # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def __plot_brakes(self, ax):
         ax.step(
@@ -292,6 +285,25 @@ class Plotter:
 
         self.__plot_cross(ax, pos, text, color="m", marker="v", top=False)
 
+    def __plot_centers(self, ax, center):
+        x, y, r = np.asarray(center, dtype=float)
+        z = 0.0
+
+        self.__plot_cross(
+                    ax, [x, y, z], f"R = {r:.1f}", color="orange", marker="o", top=False,
+        )
+
+        angles = np.linspace(0, 2 * np.pi, 200)
+
+        ax.plot(
+                    x + r * np.cos(angles),
+                    y + r * np.sin(angles),
+                    np.full_like(angles, z),
+                    color="orange",
+                    linestyle="--",
+                    linewidth=1,
+        )
+
     def __plot_goals(self, ax):
         unique_goals = []
 
@@ -314,7 +326,7 @@ class Plotter:
         ax.set_ylabel("Y [m]")
         ax.set_zlabel("Z [m]")
         ax.set_title(
-                    f"Landing error: {np.linalg.norm(self.phases[-1].goal_pos - self.states[POS][-1]):.2f} [m]"
+                    f"Landing error: {np.linalg.norm(self.phases[-1].goal_pos - self.positions[-1]):.2f} [m]"
         )
 
         ax.plot(self.positions[:, X],
@@ -328,6 +340,9 @@ class Plotter:
         for phase in self.phases[1 :]:
             self.__plot_phases(ax, phase)
 
+        for center in self.centers:
+            self.__plot_centers(ax, center)
+
         self.__plot_goals(ax)
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -339,7 +354,10 @@ class Plotter:
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-        ax.view_init(elev=40, azim=-60)
+        for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+            axis.set_major_locator(MultipleLocator(STEP))
+
+        ax.view_init(elev=90, azim=-90)
         ax.tick_params(labelsize=8)
 
     def __format_table_value(self, data, index):
