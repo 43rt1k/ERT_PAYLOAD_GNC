@@ -10,9 +10,13 @@ from dataclasses import dataclass, field
 from payload_gnc.gsim_helper import *
 from payload_gnc.logger import Log
 
+import logging
 
 
 
+
+
+logging.getLogger("matplotlib.text").setLevel(logging.ERROR)
 
 STEP = 100    # metres between grid lines
 
@@ -54,10 +58,11 @@ class Plotter:
 
         self.brake_commands = np.asarray(log[Log.ID.BRAKE_COMMANDS])
         self.errors = np.asarray(log[Log.ID.ERRORS])
+
         self.integrals = np.asarray(log[Log.ID.INTEGRALS])
         self.phases = log[Log.ID.PHASES]
         self.centers = log[Log.ID.CENTERS]
-        print(self.centers)
+
         self.init_position = self.positions[0].copy()
 
         self.file_name = file_name
@@ -93,11 +98,18 @@ class Plotter:
                     ),
                     dict(
                                 times=self.times,
-                                data=np.rad2deg(self.errors[:]),
-                                color="red",
-                                label="Yaw error",
-                                ylabel="[°]",
-                    ), ]
+                                data=self.integrals,
+                                color="purple",
+                                label="",
+                                stepped=False,
+                    ),
+                    dict(times=self.times,
+                         data=self.errors,
+                         color="red",
+                         label="Error",
+                         ylabel="[m]",
+                         mmin=-50,
+                         mmax=50), ]
 
     def __define_table_rows(self):
         return [
@@ -204,12 +216,23 @@ class Plotter:
         )
         self.snap.time_lines.append(time_line)
 
+        ax.set_ylim(-1, 1)
         ax.set_ylabel("Brakes")
         ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
 
     def __plot_series(
-                self, ax, times, data, *, color, label="", ylabel="", stepped=False,
+                self,
+                ax,
+                times,
+                data,
+                *,
+                color,
+                mmin=None,
+                mmax=None,
+                label="",
+                ylabel="",
+                stepped=False,
     ):
         if stepped:
             # Requires one more timestamp than data values.
@@ -222,6 +245,7 @@ class Plotter:
         )
         self.snap.time_lines.append(time_line)
 
+        if mmin is not None and mmax is not None: ax.set_ylim(mmin, mmax)
         ax.set_ylabel(ylabel)
         ax.legend(loc="upper right")
         ax.grid(True, alpha=0.3)
@@ -286,9 +310,8 @@ class Plotter:
         self.__plot_cross(ax, pos, text, color="m", marker="v", top=False)
 
     def __plot_centers(self, ax, center):
-        x, y, r = np.asarray(center, dtype=float)
-        z = 0.0
-
+        x, y, z, r = np.asarray(center, dtype=float)
+        z *= -1
         self.__plot_cross(
                     ax, [x, y, z], f"R = {r:.1f}", color="orange", marker="o", top=False,
         )
@@ -357,6 +380,10 @@ class Plotter:
         for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
             axis.set_major_locator(MultipleLocator(STEP))
 
+        ax.set_box_aspect((abs(np.diff(ax.get_xlim3d())[0]),
+                           abs(np.diff(ax.get_ylim3d())[0]),
+                           abs(np.diff(ax.get_zlim3d())[0])))
+        ax.set_proj_type("ortho")
         ax.view_init(elev=90, azim=-90)
         ax.tick_params(labelsize=8)
 
@@ -477,6 +504,7 @@ class Plotter:
         self.plot_left_side(figure, grid[0, 0])
 
         self.__save_fig(figure)
+
         plt.show()
 
         return figure

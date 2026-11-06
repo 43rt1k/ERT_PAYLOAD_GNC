@@ -13,9 +13,10 @@ from payload_gnc.controllers.body import Body
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-R_BASIC = 200
-R_MIN = 50
+R_MIN = 150
 INCREASE_COEFF = 1.25
+INIT_CENTER_COEFF = 2.5
+OPTIMAL_LOOP_NB = 2
 
 
 
@@ -73,6 +74,7 @@ class GN_Controller:
         self.vrb_phase = True
         self.vrb_landed = True
         self.vrb_init = True
+        self.vrb_loop = True
 
         # CONFIG –––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -92,9 +94,10 @@ class GN_Controller:
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
         self.loops_nb = None
+        self.h_loop = None
         self.center_pos = None
         self.r = None
-        self.r_basic = R_BASIC
+        self.r_min = R_MIN
         self.init_circle_pos = None
         self.init_circle_side = None
 
@@ -108,13 +111,16 @@ class GN_Controller:
         self.PID_C = PID_Rotation(config["pid_C"],
                                   config["dt"],
                                   config["max_brake"],
-                                  goal_pos=self.B.goal_pos_final)
+                                  goal_pos=self.B.goal_pos)
 
         self.C = self.PID_C
 
         self.L = log
 
         self.P = self.Phase(FP.STABILISATION, self.time, self.B.init_pos, goal_pos=self.B.goal_pos)
+
+        self.loop_direction = None
+        self.radius_gain = 0.1    # Example correction gain per update.
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -129,6 +135,10 @@ class GN_Controller:
             text = f"Init center=[{', '.join(f'{pos:.2f}' for pos in self.center_pos)}], R={self.r:.1f}"
             print_message(self.VRB_ID, text, self.B.time)
 
+    def __print_loop_no_found(self, r_pot):
+        if self.vrb_loop and len(r_pot) == 0:
+            print_message(self.VRB_ID, "NO LOOP FOUND, BLYAT'!", self.time)
+
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
     def __set_phase(self, phase):
@@ -140,7 +150,7 @@ class GN_Controller:
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def __get_h_loop(self, R, angle=(2 * np.pi)):
+    def __get_h_loop_r(self, R, angle=(2 * np.pi)):
 
         speed_xy = self.B.get_speed(Body.ST.XY)
 
@@ -148,19 +158,18 @@ class GN_Controller:
 
         return self.B.vel[Z] * duration
 
+    def __get_r_loop_h(self, h, angle=2 * np.pi):
+        speed_xy = self.B.get_speed(Body.ST.XY)
+
+        duration = h / self.B.vel[Z]
+
+        return float(duration * speed_xy / abs(angle))
+
     def __get_r(self, h, angle=(2 * np.pi)):
 
         speed_xy = self.B.get_speed(Body.ST.XY)
         duration = h / self.B.vel[Z]
         return duration * speed_xy / abs(angle)
-
-    def __get_center_dir(self):
-        vel_xy = self.B.vel[: XY]
-        speed_xy = np.linalg.norm(vel_xy)
-
-        # Unit vector pointing right of the motion in NED coordinates.
-        self.center_dir = np.array([-vel_xy[Y], vel_xy[X]], dtype=float) / speed_xy
-        return self.center_dir
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
@@ -171,51 +180,139 @@ class GN_Controller:
 
     def __init_circle(self):
         pos = self.B.pos[: XY]
-        goal = self.B.goal_pos_final[: XY]
+        goal = self.B.goal_pos[: XY]
+        self.center_pos = [0, 0, self.B.pos[Z]]
+
+        to_goal = pos - goal
+        to_goal_norm = np.linalg.norm(to_goal)
+        to_goal_dir = to_goal / to_goal_norm
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-        self.center_pos = (pos + goal) / 2.0
-        self.r = float(np.linalg.norm(goal - pos) / 2.0)
+        self.r = to_goal_norm / INIT_CENTER_COEFF
+        self.center_pos[: XY] = goal + to_goal_dir * self.r
 
         self.__print_center()
 
     def __init_loops_nb(self):
 
+        direction = self.center_pos[: XY] - self.B.goal_pos[: XY]
+        self.center_dir = direction / np.linalg.norm(direction)
+
         B = self.B
-        h = max(float(B.goal_pos_final[Z] - B.pos[Z]), 0.0)
+        self.center_pos = self.B.pos.copy()
 
-        r = float(self.r_basic)
-        print(f"r={r}, h={h}")
+        h = max(float(B.goal_pos[Z] - B.pos[Z]), 0.0)
 
-        counter = 100
+        loop_nb = 1
+        r_pot = []
         while True:
-            counter -= 1
-            if counter <= 0: return
 
-            h_loop = self.__get_h_loop(r)
+            h_loop = h / loop_nb
+            r = self.__get_r_loop_h(h_loop)
 
-            loop_nb = int(h / h_loop)
-            print(f"r={r}, h_loop={h_loop}, loop_nb={loop_nb}")
+            if r < R_MIN: break
+            # print(f"r={r}, h_loop={h_loop}, loop_nb={loop_nb}")
 
-            h_top = h - loop_nb * h_loop
+            r_pot.append(r)
+            loop_nb += 1
 
-            if np.isclose(h_top, 0.0, atol=10.0): break
+        self.__print_loop_no_found(r_pot)
 
-            r -= 1.0
+        r_pot_nb = len(r_pot)
 
-            if r < R_MIN: r = float(self.r_basic * INCREASE_COEFF)
+        if r_pot_nb == 0:
+            self.r = R_MIN
+            self.loops_nb = 1
+        elif r_pot_nb <= OPTIMAL_LOOP_NB:
+            self.r = r_pot[-1]
+            self.loops_nb = r_pot_nb
+        else:
+            r_pot_id = int(r_pot_nb / 2)
+            self.r = r_pot[r_pot_id]
+            self.loops_nb = r_pot_id + 1
 
-        print("r: ", r)
-        self.r = float(r)
-        self.center_pos = (np.asarray(self.B.goal_pos_final[: XY], dtype=float) +
-                           self.__get_center_dir() * self.r)
+        self.h_loop = h / self.loops_nb
+
+        print_message(self.VRB_ID,
+                      f"Found {len(r_pot)} possible R. Best: R={self.r:.1f}",
+                      self.time)
+
+        self.center_pos[: XY] = (np.asarray(self.B.goal_pos[: XY], dtype=float) +
+                                 self.center_dir * self.r)
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
-    def __update_loops(self):
-        pass
+    def __update_r(self):
+        two_pi = 2 * np.pi
+
+        if self.h_loop <= 0:
+            return
+
+        center = np.asarray(self.center_pos[: 2], dtype=float)
+        position = np.asarray(self.B.pos[: 2], dtype=float)
+        goal = np.asarray(self.B.goal_pos[: 2], dtype=float)
+        velocity = np.asarray(self.B.vel[: 2], dtype=float)
+
+        to_position = position - center
+        to_goal = goal - center
+
+        if min(np.linalg.norm(to_position), np.linalg.norm(to_goal),
+               np.linalg.norm(velocity)) <= 1e-6:
+            return
+
+        if self.B.vel[Z] <= 1e-6:
+            return
+
+        # 1. Determine the orbit direction once per loop phase.
+        if self.loop_direction is None:
+            cross = (to_position[0] * velocity[1] - to_position[1] * velocity[0])
+
+            if abs(cross) <= 1e-12:
+                return
+
+            self.loop_direction = 1 if cross > 0 else -1
+
+        # Directed angle from the goal radius to the current radius.
+        cross = (to_goal[0] * to_position[1] - to_goal[1] * to_position[0])
+        dot = np.dot(to_goal, to_position)
+
+        progress_angle = (self.loop_direction * np.arctan2(cross, dot)) % two_pi
+
+        self.angular_progress = progress_angle / two_pi
+        remaining_angle = two_pi - progress_angle
+
+        # 2. Height above the final goal, using NED coordinates.
+        height = max(
+                    float(self.B.goal_pos[Z] - self.B.pos[Z]), 0.0,
+        )
+
+        loop_nb = int(height / self.h_loop)
+        remaining_height = height - self.h_loop * loop_nb
+
+        # At an exact multiple, target the next lower level.
+        if height > 0 and np.isclose(remaining_height, 0.0, atol=1e-6):
+            remaining_height = min(self.h_loop, height)
+
+        # 3. Predicted height loss over the remaining arc.
+        estimated_loss = self.__get_h_loop_r(
+                    self.r, angle=remaining_angle,
+        )
+
+        if not np.isfinite(estimated_loss):
+            return
+
+        # 4. Positive error means more height must be lost.
+        self.height_loss_error = remaining_height - estimated_loss
+
+        # 5. Increase radius to lengthen the path, or decrease it.
+        self.r = max(
+                    R_MIN, self.r + self.radius_gain * self.height_loss_error,
+        )
+
+        # Keep the goal on the circle.
+        self.center_pos[: 2] = goal + self.center_dir * self.r
 
     def __update_phase(self):
 
@@ -231,15 +328,16 @@ class GN_Controller:
             self.__set_phase(FP.APPROACH)
             self.__init_circle()
             self.C.reset()
+
             self.L.update_centers(self.center_pos, self.r)
 
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
         # PHASE DEFAULT: Approach the final goal position
-        # elif self.P == FP.APPROACH and self.B.is_goal_passed():
-        #     self.__set_phase(FP.LOOP)
-        #     self.__init_loops_nb()
-        #     self.C.reset()
-        #     self.L.update_centers(self.C.center_pos)
+        elif self.P == FP.APPROACH and self.B.is_goal_passed(self.center_pos):
+            self.__set_phase(FP.LOOP)
+            self.__init_loops_nb()
+
+            self.L.update_centers(self.center_pos, self.r)
 
     def update(self, state, time):
 
@@ -254,7 +352,7 @@ class GN_Controller:
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
         if self.P == FP.STABILISATION: return
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-
+        if self.P == FP.LOOP: self.__update_r()
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
         self.B.brakes, self.error, brake_command, integral = self.C.update(self.B, self.center_pos, self.r)

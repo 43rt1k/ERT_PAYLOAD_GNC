@@ -14,7 +14,7 @@ from payload_gnc.controllers.controller import GN_Controller, FP
 
 class Simulator:
 
-    def __init__(self, aircraft, *, configs, dt, GNC, wind=(0, 0, 0)):
+    def __init__(self, aircraft, *, configs, dt, GNC, wind=(0.2, 0.2, 0)):
         self.VRB_ID = "SIM"
         self.vrb_progress = False
 

@@ -164,6 +164,7 @@ class PID_Rotation(Controller):
 
         self.error = float(distance - r)
 
+
     def __update_brake_side(self, B: Body):
 
         brake = self.brake.copy()
@@ -185,7 +186,6 @@ class PID_Rotation(Controller):
         angle = abs(np.arccos(np.clip(cosine, -1.0, 1.0)))
 
         if angle > np.pi - self.min_ang:
-            print(angle)
             self.brake_command = self.max_brake
             self._set_brake()
 

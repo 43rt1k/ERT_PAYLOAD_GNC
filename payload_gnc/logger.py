@@ -32,7 +32,7 @@ class Log:
         target_len = len(self.data[self.ID.BODY])
 
         for key, values in self.data.items():
-            if key == self.ID.PHASES:
+            if key == self.ID.PHASES or key == self.ID.CENTERS:
                 # Keep phase snapshots as a list; do not pad them.
                 continue
 
@@ -52,7 +52,8 @@ class Log:
             self.data[key] = np.concatenate((padding, data), axis=0)
 
     def update_centers(self, center, r):
-        data = np.array([center[X], center[Y], r], dtype=float)
+
+        data = np.array([center[X], center[Y], center[Z], r], dtype=float)
         self.data[self.ID.CENTERS].append(data)
 
     def update(self, B, brake_command, integral, error, phase):

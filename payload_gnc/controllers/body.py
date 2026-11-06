@@ -11,6 +11,8 @@ ARRIVAL_Z = 100
 Z_COEFF = 3
 DEG_TOL = 15
 
+GOAL_ANG_MARGIN = np.deg2rad(0.5)
+
 
 
 
@@ -51,18 +53,12 @@ class Body:
         # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
         self.init_pos = initial_position
-        self.goal_pos_final = goal_position
-        self.goal_pos: np.ndarray
+        self.goal_pos = goal_position
+
         self.set_goal()
 
-        self.goal_margin = goal_margin
-        # self.n = n
-
-        # Intrinsic data ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
-
-        # self.arrival_Z = 0
-        # self.minR = 0
-        # self.minZloss = 0
+        self.prev_pos_goal_sign: bool | None = None
+        self.pos_goal_sign: bool | None = None
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
@@ -97,7 +93,7 @@ class Body:
 
     def set_goal(self, goal_pos=None, grounded=False):
 
-        if goal_pos is None: goal_pos = self.goal_pos_final
+        if goal_pos is None: goal_pos = self.goal_pos
 
         self.goal_pos = goal_pos.copy()
 
@@ -111,18 +107,30 @@ class Body:
     def is_landed(self):
         return self.pos[Z] >= 0
 
-    def is_goal_passed(self):
+    def is_goal_passed(self, center_pos):
+        center = np.asarray(center_pos, dtype=float)[: 2]
+        to_goal = self.goal_pos[: 2] - center
+        to_pos = self.pos[: 2] - center
 
-        to_goal = self.goal_pos_final[: XY] - self.pos[: XY]
+        # Signed perpendicular distance from the centre–goal line [m].
+        goal_distance = np.linalg.norm(to_goal)
+        if goal_distance <= 1e-12:
+            return False
 
-        yaw = float(self.ori[YAW])
-        forward = np.array([np.cos(yaw), np.sin(yaw)])
-        dist = self.get_dist(self.goal_pos_final)
+        side = (to_goal[0] * to_pos[1] - to_goal[1] * to_pos[0]) / goal_distance
 
-        if np.dot(forward, to_goal) < 0 and dist < self.goal_margin:
-            return True
+        # On the line: keep the last known side until we clearly cross.
+        if abs(side) <= 1e-6:
+            return False
 
-        return False
+        self.prev_pos_goal_sign = self.pos_goal_sign
+        self.pos_goal_sign = bool(side > 0)
+
+        crossed = (self.prev_pos_goal_sign is not None and
+                   self.pos_goal_sign != self.prev_pos_goal_sign)
+
+        # A circle crosses the line twice. Count only the goal side.
+        return crossed and bool(np.dot(to_goal, to_pos) > 0)
 
     # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 

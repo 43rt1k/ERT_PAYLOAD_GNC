@@ -3,7 +3,7 @@
     # goal_position = [500.0, 300.0, 0.0]  # m; 
     # goal_position = [500.0, -200.0, 0.0]  # m; 
     # goal_position = [-500.0, 200.0, 0.0]  # m; 
-    goal_position = [500.0, 0.0, 0.0]  # m; 
+    goal_position = [500.0, 300.0, 0.0]  # m; 
 
     max_brake = 0.5
     arrival_margin=50.0
@@ -22,10 +22,10 @@
 
     [controller.pid_C]
 
-        kp = 0.01
-        kd = 0.8
-        ki = 0.001
-        ki_max = 1000
+        kp = 0.05
+        kd = 0.9
+        ki = 0.00005
+        ki_max = 800
         error_xy_max = 0.5 # error_xy_max * np.pi
     # [controller.pid_C]
     #     kp = 0.08
@@ -38,10 +38,10 @@
 # ––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––––
 
 [simulation]
-    t_sim = 3000.0                  # s
+    t_sim = 30000.0                  # s
 
-    init_pos = [0.0, 0.0, -100.0]      # m; NED coordinates
-    init_euler = [0.0, 0.0, 0.0]          # deg; NED Euler angles
+    init_pos = [0.0, 0.0, -500.0]      # m; NED coordinates
+    init_euler = [0.0, 0.0, 40.0]          # deg; NED Euler angles
 
     rho_air = 1.225                  # kg/m³
 
